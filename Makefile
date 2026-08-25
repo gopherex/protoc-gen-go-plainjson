@@ -50,8 +50,6 @@ tidy:
 
 # Interactive release: recreate the latest tag on HEAD, or bump major/minor/patch.
 # Pushing the vX.Y.Z tag triggers .github/workflows/release.yml.
-release: recreate the latest tag on HEAD, or bump major/minor/patch.
-# Pushing the vX.Y.Z tag triggers .github/workflows/release.yml.
 release:
 	@cd "$$(git rev-parse --show-toplevel)"
 	if [ -n "$$(git status --porcelain)" ]; then

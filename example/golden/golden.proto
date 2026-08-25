@@ -1,0 +1,280 @@
+syntax = "proto3";
+
+package golden;
+
+option go_package = "github.com/gopherex/protoc-gen-go-plainjson/example/golden";
+
+import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+// Top-level enum. Proto3 requires the first value to be zero (default).
+enum TopLevelEnum {
+  TOP_LEVEL_ENUM_UNSPECIFIED = 0;
+  TOP_LEVEL_ENUM_FIRST = 1;
+  TOP_LEVEL_ENUM_SECOND = 2;
+  TOP_LEVEL_ENUM_NEGATIVE = -1; // negative enum value
+}
+
+// Enum with allow_alias: multiple names map to the same number.
+enum AliasedEnum {
+  option allow_alias = true;
+  ALIASED_ENUM_UNSPECIFIED = 0;
+  ALIASED_ENUM_RUNNING = 1;
+  ALIASED_ENUM_STARTED = 1; // alias of RUNNING
+}
+
+// ---------------------------------------------------------------------------
+// Every singular scalar type
+// ---------------------------------------------------------------------------
+
+message ScalarTypes {
+  double field_double = 1;
+  float field_float = 2;
+  int32 field_int32 = 3;
+  int64 field_int64 = 4;
+  uint32 field_uint32 = 5;
+  uint64 field_uint64 = 6;
+  sint32 field_sint32 = 7;
+  sint64 field_sint64 = 8;
+  fixed32 field_fixed32 = 9;
+  fixed64 field_fixed64 = 10;
+  sfixed32 field_sfixed32 = 11;
+  sfixed64 field_sfixed64 = 12;
+  bool field_bool = 13;
+  string field_string = 14;
+  bytes field_bytes = 15;
+}
+
+// Every scalar type with proto3 explicit presence (optional).
+message OptionalScalarTypes {
+  optional double field_double = 1;
+  optional float field_float = 2;
+  optional int32 field_int32 = 3;
+  optional int64 field_int64 = 4;
+  optional uint32 field_uint32 = 5;
+  optional uint64 field_uint64 = 6;
+  optional sint32 field_sint32 = 7;
+  optional sint64 field_sint64 = 8;
+  optional fixed32 field_fixed32 = 9;
+  optional fixed64 field_fixed64 = 10;
+  optional sfixed32 field_sfixed32 = 11;
+  optional sfixed64 field_sfixed64 = 12;
+  optional bool field_bool = 13;
+  optional string field_string = 14;
+  optional bytes field_bytes = 15;
+}
+
+// Every scalar type repeated (packed where applicable).
+message RepeatedScalarTypes {
+  repeated double field_double = 1;
+  repeated float field_float = 2;
+  repeated int32 field_int32 = 3;
+  repeated int64 field_int64 = 4;
+  repeated uint32 field_uint32 = 5;
+  repeated uint64 field_uint64 = 6;
+  repeated sint32 field_sint32 = 7;
+  repeated sint64 field_sint64 = 8;
+  repeated fixed32 field_fixed32 = 9;
+  repeated fixed64 field_fixed64 = 10;
+  repeated sfixed32 field_sfixed32 = 11;
+  repeated sfixed64 field_sfixed64 = 12;
+  repeated bool field_bool = 13;
+  repeated string field_string = 14;
+  repeated bytes field_bytes = 15;
+}
+
+// ---------------------------------------------------------------------------
+// Nested message and enum definitions
+// ---------------------------------------------------------------------------
+
+message Outer {
+  // Nested message type.
+  message Inner {
+    message DeepInner {
+      string value = 1;
+    }
+    NestedEnum nested_enum = 1;
+    DeepInner deep = 2;
+  }
+
+  // Nested enum type.
+  enum NestedEnum {
+    NESTED_ENUM_UNSPECIFIED = 0;
+    NESTED_ENUM_A = 1;
+    NESTED_ENUM_B = 2;
+  }
+
+  Inner inner = 1;
+  NestedEnum enum_field = 2;
+  Inner.DeepInner deep_inner = 3;
+}
+
+// ---------------------------------------------------------------------------
+// Enum and message fields: singular, optional, repeated
+// ---------------------------------------------------------------------------
+
+message EnumAndMessageFields {
+  TopLevelEnum singular_enum = 1;
+  optional TopLevelEnum optional_enum = 2;
+  repeated TopLevelEnum repeated_enum = 3;
+
+  ScalarTypes singular_message = 4;
+  optional ScalarTypes optional_message = 5;
+  repeated ScalarTypes repeated_message = 6;
+
+  Outer.NestedEnum nested_enum = 7;
+  Outer.Inner nested_message = 8;
+}
+
+// ---------------------------------------------------------------------------
+// Maps: every legal key type, plus scalar / enum / message values
+// ---------------------------------------------------------------------------
+
+message MapKeyTypes {
+  map<int32, string> int32_key = 1;
+  map<int64, string> int64_key = 2;
+  map<uint32, string> uint32_key = 3;
+  map<uint64, string> uint64_key = 4;
+  map<sint32, string> sint32_key = 5;
+  map<sint64, string> sint64_key = 6;
+  map<fixed32, string> fixed32_key = 7;
+  map<fixed64, string> fixed64_key = 8;
+  map<sfixed32, string> sfixed32_key = 9;
+  map<sfixed64, string> sfixed64_key = 10;
+  map<bool, string> bool_key = 11;
+  map<string, string> string_key = 12;
+}
+
+message MapValueTypes {
+  map<string, double> double_value = 1;
+  map<string, float> float_value = 2;
+  map<string, int32> int32_value = 3;
+  map<string, int64> int64_value = 4;
+  map<string, uint32> uint32_value = 5;
+  map<string, uint64> uint64_value = 6;
+  map<string, bool> bool_value = 7;
+  map<string, string> string_value = 8;
+  map<string, bytes> bytes_value = 9;
+  map<string, TopLevelEnum> enum_value = 10;
+  map<string, ScalarTypes> message_value = 11;
+}
+
+// ---------------------------------------------------------------------------
+// oneof
+// ---------------------------------------------------------------------------
+
+message OneofContainer {
+  // oneof mixing scalar, enum and message members.
+  oneof choice {
+    double choice_double = 1;
+    int32 choice_int32 = 2;
+    bool choice_bool = 3;
+    string choice_string = 4;
+    bytes choice_bytes = 5;
+    TopLevelEnum choice_enum = 6;
+    ScalarTypes choice_message = 7;
+  }
+
+  // A second, independent oneof in the same message.
+  oneof other {
+    string other_a = 8;
+    int64 other_b = 9;
+  }
+
+  // Regular field alongside oneofs.
+  string outside_oneof = 10;
+}
+
+// ---------------------------------------------------------------------------
+// Well-known types
+// ---------------------------------------------------------------------------
+
+message WellKnownTypes {
+  google.protobuf.Timestamp timestamp = 1;
+  google.protobuf.Duration duration = 2;
+  google.protobuf.Any any = 3;
+  google.protobuf.Empty empty = 4;
+  google.protobuf.FieldMask field_mask = 5;
+
+  google.protobuf.Struct struct = 6;
+  google.protobuf.Value value = 7;
+  google.protobuf.ListValue list_value = 8;
+
+  // Wrapper types (nullable scalars).
+  google.protobuf.DoubleValue double_wrapper = 9;
+  google.protobuf.FloatValue float_wrapper = 10;
+  google.protobuf.Int32Value int32_wrapper = 11;
+  google.protobuf.Int64Value int64_wrapper = 12;
+  google.protobuf.UInt32Value uint32_wrapper = 13;
+  google.protobuf.UInt64Value uint64_wrapper = 14;
+  google.protobuf.BoolValue bool_wrapper = 15;
+  google.protobuf.StringValue string_wrapper = 16;
+  google.protobuf.BytesValue bytes_wrapper = 17;
+
+  repeated google.protobuf.Timestamp repeated_timestamp = 18;
+  map<string, google.protobuf.Duration> map_duration = 19;
+}
+
+// ---------------------------------------------------------------------------
+// Recursion and self-reference
+// ---------------------------------------------------------------------------
+
+// Self-referential tree node.
+message TreeNode {
+  string id = 1;
+  TreeNode parent = 2;            // singular self-reference
+  repeated TreeNode children = 3; // repeated self-reference
+  map<string, TreeNode> named = 4; // self-reference as map value
+}
+
+// Mutually recursive pair.
+message MutualA {
+  MutualB b = 1;
+}
+
+message MutualB {
+  MutualA a = 1;
+}
+
+// ---------------------------------------------------------------------------
+// Reserved fields and names
+// ---------------------------------------------------------------------------
+
+message Reserved {
+  reserved 2, 4, 6 to 9;
+  reserved "old_field", "deprecated_field";
+  string active = 1;
+}
+
+// ---------------------------------------------------------------------------
+// Mega message: everything together
+// ---------------------------------------------------------------------------
+
+message Everything {
+  ScalarTypes scalars = 1;
+  OptionalScalarTypes optionals = 2;
+  RepeatedScalarTypes repeateds = 3;
+  EnumAndMessageFields enums_and_messages = 4;
+  MapKeyTypes map_keys = 5;
+  MapValueTypes map_values = 6;
+  OneofContainer oneof = 7;
+  WellKnownTypes well_known = 8;
+  TreeNode tree = 9;
+  Reserved reserved = 10;
+
+  repeated Everything recursive = 11;
+
+  oneof terminal {
+    bool done = 12;
+    string error = 13;
+  }
+}

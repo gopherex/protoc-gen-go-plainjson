@@ -11,9 +11,12 @@
 # Test binary, built with `go test -c`
 *.test
 
-# Code coverage profiles and other test artifacts
+# Code coverage profiles and other test artifacts. Note the profile names are
+# spelled out: a blanket "coverage.*" also swallows source files.
 *.out
-coverage.*
+coverage.html
+coverage.txt
+coverage.cov
 *.coverprofile
 profile.cov
 

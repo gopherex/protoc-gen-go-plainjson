@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package invalid.pick_non_leaf;
+
+option go_package = "example.com/invalid/pick_non_leaf";
+
+import "plainjson/plainjson.proto";
+
+// The path resolves to a message, not a value.
+message Root {
+  option (plainjson.message).generate = true;
+  Inner f = 1 [(plainjson.field).pick = "a"];
+}
+message Inner { Leaf a = 1; }
+message Leaf { string c = 1; }

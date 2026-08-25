@@ -1,8 +1,7 @@
 lint:
   use:
     - DEFAULT
-  enum_zero_value_suffix: NONE
-  service_suffix: API
+  enum_zero_value_suffix: UNSPECIFIED
   ignore: []
   except: []
   allow_comment_ignores: false
@@ -10,17 +9,15 @@ lint:
 deps:
 generate:
   inputs:
-    - directory: golden
+    - directory: plainjson
+    - directory: example/spec
+    - directory: example/bench
   plugins:
     - name: go
       out: .
       opts:
         paths: source_relative
-    - name: go-grpc
-      out: .
-      opts:
-        paths: source_relative
-    - path: ../bin/protoc-gen-go-plainjson
+    - path: ./bin/protoc-gen-go-plainjson
       out: .
       opts:
         paths: source_relative

@@ -1,0 +1,131 @@
+syntax = "proto3";
+
+package spec.collisions;
+
+option go_package = "github.com/gopherex/protoc-gen-go-plainjson/example/spec/collisions";
+
+import "plainjson/plainjson.proto";
+
+message Cgroup { string path = 1; }
+message Linux { int32 pid = 1; Cgroup cgroup = 2; }
+message Exe { string path = 1; string sha256 = 2; }
+
+// Two live subtrees both yield "path". Default policy IGNORE + wins FIRST:
+// traversal order decides, silently.
+// {"pid":4242,"path":"/sys/fs/x","sha256":"9f86"}
+message IgnoreFirst {
+  option (plainjson.message).generate = true;
+  Linux linux = 1;
+  Exe exe = 2;
+}
+
+// The same shape with LAST: the later writer wins (buffered).
+// {"pid":4242,"path":"/usr/bin/curl","sha256":"9f86"}
+message IgnoreLast {
+  option (plainjson.message) = {
+    generate: true, collision_wins: COLLISION_WINS_LAST
+  };
+  Linux linux = 1;
+  Exe exe = 2;
+}
+
+// FIRST means "first source that is actually non-empty": an empty earlier
+// source does not claim the key.
+// linux.cgroup.path empty -> {"pid":4242,"path":"/usr/bin/curl","sha256":"9f86"}
+message FirstSkipsEmpty {
+  option (plainjson.message).generate = true;
+  Linux linux = 1;
+  Exe exe = 2;
+}
+
+// A prefix applies to every key of the subtree it is set on, so it goes on the
+// clashing branch rather than on the whole message field.
+message LinuxPrefixed {
+  int32 pid = 1;
+  Cgroup cgroup = 2 [(plainjson.field).prefix = "cgroup_"];
+}
+
+// Disambiguated by prefix: no collision left.
+// {"pid":4242,"cgroup_path":"/sys/fs/x","path":"/usr/bin/curl","sha256":"9f86"}
+message ResolvedByPrefix {
+  option (plainjson.message) = {
+    generate: true,
+    key_case: KEY_CASE_ORIGINAL,
+    collision_policy: COLLISION_POLICY_ERROR_GENERATE
+  };
+  LinuxPrefixed linux = 1;
+  Exe exe = 2;
+}
+
+// Disambiguated by KEY_FROM_PATH: collision-free by construction.
+// {"linuxPid":4242,"linuxCgroupPath":"/sys/fs/x","exePath":"/usr/bin/curl","exeSha256":"9f86"}
+message ResolvedByPath {
+  option (plainjson.message) = {
+    generate: true,
+    key_from: KEY_FROM_PATH,
+    collision_policy: COLLISION_POLICY_ERROR_GENERATE
+  };
+  Linux linux = 1;
+  Exe exe = 2;
+}
+
+// Runtime policy: the error fires only when both sources actually write.
+message RuntimeDetected {
+  option (plainjson.message) = {
+    generate: true, collision_policy: COLLISION_POLICY_ERROR_RUNTIME
+  };
+  Linux linux = 1;
+  Exe exe = 2;
+}
+
+message Docker { string id = 1; }
+message Podman { string id = 1; }
+message Containerd { string id = 1; }
+
+// Declared exclusive: sharing "id" is not a collision even under
+// ERROR_GENERATE, because at most one member is ever set.
+// {"id":"c0ffee"}
+message ExclusiveGroupOK {
+  option (plainjson.message) = {
+    generate: true,
+    collision_policy: COLLISION_POLICY_ERROR_GENERATE,
+    exclusive_groups: [{fields: ["docker", "podman", "containerd"]}]
+  };
+  Docker docker = 1;
+  Podman podman = 2;
+  Containerd containerd = 3;
+}
+
+// The same declaration under ERROR_RUNTIME: if the promise is broken and two
+// members are set, the encode fails.
+message ExclusiveGroupViolated {
+  option (plainjson.message) = {
+    generate: true,
+    collision_policy: COLLISION_POLICY_ERROR_RUNTIME,
+    exclusive_groups: [{fields: ["docker", "podman"]}]
+  };
+  Docker docker = 1;
+  Podman podman = 2;
+}
+
+// Exclusive group over dot paths rather than top-level fields.
+message Wrapper { Docker docker = 1; }
+message ExclusiveGroupDotPaths {
+  option (plainjson.message) = {
+    generate: true,
+    collision_policy: COLLISION_POLICY_ERROR_GENERATE,
+    exclusive_groups: [{fields: ["left.docker", "right.docker"]}]
+  };
+  Wrapper left = 1;
+  Wrapper right = 2;
+}
+
+// CARDINALITY_EXPLODE over several elements: a dynamic collision that only
+// ERROR_RUNTIME can see.
+message Elem { string k = 1; }
+message ExplodeCollision {
+  option (plainjson.message) = {
+    generate: true, collision_policy: COLLISION_POLICY_ERROR_RUNTIME
+  };
+  repeated Elem elems = 1 [(plainjson.field).cardinality = CARDINALITY_EXPLODE];
+}

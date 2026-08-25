@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package invalid.prefix_without_flatten;
+
+option go_package = "example.com/invalid/prefix_without_flatten";
+
+import "plainjson/plainjson.proto";
+
+// The field keeps its own key, so a subtree prefix can never apply.
+message Root {
+  option (plainjson.message).generate = true;
+  Inner f = 1 [(plainjson.field) = {flatten: FLATTEN_MODE_NONE, prefix: "p_"}];
+}
+message Inner {
+  option (plainjson.message).flatten = FLATTEN_MODE_NONE;
+  string a = 1;
+}

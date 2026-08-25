@@ -1,0 +1,61 @@
+[
+  {
+    "name": "selection/omit",
+    "spec": "Picking, lifting, omitting: omit drops the subtree",
+    "message": "spec.selection.Omit",
+    "input": {"id": "o1", "debug": {"trace": "t"}},
+    "want": "{\"id\":\"o1\"}",
+    "flat": true
+  },
+  {
+    "name": "selection/pick",
+    "spec": "Picking, lifting, omitting: pick replaces a field with one value",
+    "message": "spec.selection.Pick",
+    "input": {
+      "total": {"amount": "1000", "currency": "EUR"},
+      "buyer": {"id": "u-7", "profile": {"nickname": "ann", "contact": {"email": "ann@example.com", "phone": "+1"}}}
+    },
+    "want": "{\"total\":\"1000\",\"email\":\"ann@example.com\"}",
+    "flat": true
+  },
+  {
+    "name": "selection/pick-keeps-field-name",
+    "spec": "Picking: without name the key comes from the annotated field",
+    "message": "spec.selection.PickKeepsFieldName",
+    "input": {"buyer": {"profile": {"contact": {"email": "ann@example.com"}}}},
+    "want": "{\"buyer\":\"ann@example.com\"}"
+  },
+  {
+    "name": "selection/lift",
+    "spec": "Picking, lifting, omitting: lift hoists chosen paths, drops the rest",
+    "message": "spec.selection.Lift",
+    "input": {
+      "deep": {
+        "a": {"b": {"id": "r-7", "title": "Weekly"}, "stats": {"total": 42}},
+        "ignored": "x"
+      }
+    },
+    "want": "{\"id\":\"r-7\",\"title\":\"Weekly\",\"total\":42}",
+    "flat": true
+  },
+  {
+    "name": "selection/lift-alongside-flatten",
+    "spec": "Lifting: a lifted subtree next to normally flattened fields",
+    "message": "spec.selection.LiftAlongsideFlatten",
+    "input": {"keep": "k", "buyer": {"id": "u-7", "profile": {"contact": {"email": "ann@example.com"}}}},
+    "want": "{\"keep\":\"k\",\"email\":\"ann@example.com\"}"
+  },
+  {
+    "name": "selection/pick-from-struct",
+    "spec": "Scalars and well-known types: pick reaches into a Struct",
+    "message": "spec.selection.PickFromStruct",
+    "input": {"attrs": {"user": {"id": "u-7"}}},
+    "want": "{\"userId\":\"u-7\"}"
+  },
+  {
+    "name": "selection/pick-empty-source",
+    "spec": "Empty values and presence: an empty picked value is omitted",
+    "message": "spec.selection.Pick",
+    "want": "{}"
+  }
+]

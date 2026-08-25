@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package invalid.pick_unknown_path;
+
+option go_package = "example.com/invalid/pick_unknown_path";
+
+import "plainjson/plainjson.proto";
+
+// "b" does not exist in Inner.
+message Root {
+  option (plainjson.message).generate = true;
+  Inner f = 1 [(plainjson.field).pick = "a.b"];
+}
+message Inner { Leaf a = 1; }
+message Leaf { string c = 1; }

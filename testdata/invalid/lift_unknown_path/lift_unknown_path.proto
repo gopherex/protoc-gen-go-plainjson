@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package invalid.lift_unknown_path;
+
+option go_package = "example.com/invalid/lift_unknown_path";
+
+import "plainjson/plainjson.proto";
+
+// The lifted path does not resolve.
+message Root {
+  option (plainjson.message) = {generate: true};
+  Inner f = 1 [(plainjson.field) = {lift: [{path: "nope", as: "x"}]}];
+}
+message Inner { string a = 1; }

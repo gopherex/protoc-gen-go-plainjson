@@ -1,0 +1,99 @@
+[
+  {
+    "name": "merge/basic",
+    "spec": "Merge rules: sources in priority order, merged keys written last",
+    "message": "spec.merging.Merge",
+    "input": {
+      "container": {"image": "nginx"},
+      "linux": {"pid": 4242, "ucred": {"uid": "1000"}, "startTime": "2026-08-25T12:00:00Z"}
+    },
+    "want": "{\"image\":\"nginx\",\"pid\":4242,\"user\":\"1000\",\"startedAt\":1787659200000}",
+    "flat": true
+  },
+  {
+    "name": "merge/other-branch",
+    "spec": "Merge rules: the same keys fed from the other oneof branch",
+    "message": "spec.merging.Merge",
+    "input": {
+      "container": {"image": "nginx"},
+      "windows": {"processId": 77, "sid": "S-1-5", "createTime": "2026-08-25T12:00:00Z"}
+    },
+    "want": "{\"image\":\"nginx\",\"pid\":77,\"user\":\"S-1-5\",\"startedAt\":1787659200000}"
+  },
+  {
+    "name": "merge/priority",
+    "spec": "Merge rules: FIRST_NON_EMPTY takes the earlier source",
+    "message": "spec.merging.MergePriority",
+    "input": {"container": {"runtime": {"hostPid": 999}}, "linux": {"pid": 4242}},
+    "want": "{\"pid\":999}"
+  },
+  {
+    "name": "merge/priority-falls-through",
+    "spec": "Merge rules: an empty earlier source does not claim the key",
+    "message": "spec.merging.MergePriority",
+    "input": {"linux": {"pid": 4242}},
+    "want": "{\"pid\":4242}"
+  },
+  {
+    "name": "merge/last-non-empty",
+    "spec": "Merge rules: LAST_NON_EMPTY",
+    "message": "spec.merging.MergeLastWins",
+    "input": {"container": {"runtime": {"hostPid": 999}}, "linux": {"pid": 4242}},
+    "want": "{\"pid\":4242}"
+  },
+  {
+    "name": "merge/error-on-conflict",
+    "spec": "Merge rules: MERGE_CONFLICT_ERROR with two non-empty sources",
+    "message": "spec.merging.MergeErrorOnConflict",
+    "input": {"container": {"runtime": {"hostPid": 999}}, "linux": {"pid": 4242}},
+    "want_error": "merge_conflict",
+    "error_key": "pid"
+  },
+  {
+    "name": "merge/error-policy-single-source",
+    "spec": "Merge rules: MERGE_CONFLICT_ERROR is quiet with one source",
+    "message": "spec.merging.MergeErrorOnConflict",
+    "input": {"linux": {"pid": 4242}},
+    "want": "{\"pid\":4242}"
+  },
+  {
+    "name": "merge/all-empty-omitted",
+    "spec": "Merge rules: every source empty omits the key",
+    "message": "spec.merging.MergeAllEmpty",
+    "want": "{}"
+  },
+  {
+    "name": "merge/all-empty-emitted",
+    "spec": "Merge rules: emit_empty on the rule",
+    "message": "spec.merging.MergeAllEmptyEmitted",
+    "want": "{\"pid\":null}"
+  },
+  {
+    "name": "merge/raw-key",
+    "spec": "Merge rules: raw_key keeps the key verbatim",
+    "message": "spec.merging.MergeRawKey",
+    "input": {"windows": {"processId": 77}},
+    "want": "{\"PID\":77}"
+  },
+  {
+    "name": "merge/formats",
+    "spec": "Merge rules: a rule carries its own value formatting",
+    "message": "spec.merging.MergeFormats",
+    "input": {
+      "blob": {"data": "AQID"},
+      "counted": {"parts": ["a", "b"]},
+      "typed": {"kind": "KIND_ONE"},
+      "linux": {"pid": 4242},
+      "timed": {"took": "1.5s"}
+    },
+    "want": "{\"payload\":\"010203\",\"joined\":\"a+b\",\"kind\":1,\"n\":4242,\"took\":1500}",
+    "flat": true
+  },
+  {
+    "name": "merge/explicit-default-conflict-mode",
+    "spec": "Merge rules: stating FIRST_NON_EMPTY changes nothing",
+    "message": "spec.merging.MergeExplicitDefaultConflict",
+    "input": {"linux": {"pid": 4242}},
+    "want": "{\"pid\":4242}"
+  }
+]

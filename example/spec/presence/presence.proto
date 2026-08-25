@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+package spec.presence;
+
+option go_package = "github.com/gopherex/protoc-gen-go-plainjson/example/spec/presence";
+
+import "plainjson/plainjson.proto";
+import "google/protobuf/wrappers.proto";
+
+message Leaf { string a = 1; int32 n = 2; }
+
+// Implicit-presence zeros are omitted, matching protojson.
+// zero input -> {}
+message OmitsZeros {
+  option (plainjson.message).generate = true;
+  int32 n = 1;
+  string s = 2;
+  bool b = 3;
+  bytes by = 4;
+  Leaf msg = 5;
+}
+
+// emit_empty forces every key to appear with its zero value.
+// zero input -> {"n":0,"s":"","b":false,"by":"","nested_a":"","nested_n":0}
+message EmitsZeros {
+  option (plainjson.message) = {
+    generate: true, emit_empty: true, key_case: KEY_CASE_ORIGINAL
+  };
+  int32 n = 1;
+  string s = 2;
+  bool b = 3;
+  bytes by = 4;
+  Leaf msg = 5 [(plainjson.field).prefix = "nested_"];
+}
+
+// A per-field override wins over the message default, both ways.
+// zero input -> {"forced":0}
+message MixedEmitEmpty {
+  option (plainjson.message) = {generate: true, emit_empty: true};
+  int32 forced = 1;
+  string quiet = 2 [(plainjson.field).emit_empty = false];
+}
+
+// Explicit presence beats the zero check: an optional set to 0 is emitted.
+// {"opt":0} when set to zero, {} when unset
+message ExplicitPresence {
+  option (plainjson.message).generate = true;
+  optional int32 opt = 1;
+}
+
+// Wrappers carry presence too; a set wrapper holding 0 is emitted.
+// {"iv":0,"sv":""}
+message WrapperPresence {
+  option (plainjson.message).generate = true;
+  google.protobuf.Int32Value iv = 1;
+  google.protobuf.StringValue sv = 2;
+}
+
+// An unset oneof contributes nothing.
+// {"id":"x"}
+message UnsetOneof {
+  option (plainjson.message).generate = true;
+  string id = 1;
+  oneof choice {
+    string a = 2;
+    string b = 3;
+  }
+}
+
+// A set branch holding a zero value is still emitted: the branch has presence.
+// {"a":""}
+message OneofZeroBranch {
+  option (plainjson.message).generate = true;
+  oneof choice {
+    string a = 1;
+    int32 b = 2;
+  }
+}
+
+// emit_empty on a message field yields a fixed-shape record out of a sparse
+// tree: every leaf key of the subtree appears.
+// empty input -> {"a":"","n":0}
+message FixedShape {
+  option (plainjson.message).generate = true;
+  Leaf leaf = 1 [(plainjson.field).emit_empty = true];
+}

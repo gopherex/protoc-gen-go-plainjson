@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package invalid.pick_and_lift;
+
+option go_package = "example.com/invalid/pick_and_lift";
+
+import "plainjson/plainjson.proto";
+
+// pick and lift are mutually exclusive on one field.
+message Root {
+  option (plainjson.message).generate = true;
+  Inner f = 1 [(plainjson.field) = {pick: "a", lift: [{path: "a"}]}];
+}
+message Inner { string a = 1; }

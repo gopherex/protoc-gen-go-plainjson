@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package invalid.unknown_exclusive_field;
+
+option go_package = "example.com/invalid/unknown_exclusive_field";
+
+import "plainjson/plainjson.proto";
+
+// The group names a field that does not exist.
+message Root {
+  option (plainjson.message) = {
+    generate: true,
+    exclusive_groups: [{fields: ["dockerr", "podman"]}]
+  };
+  Inner docker = 1;
+  Inner podman = 2;
+}
+message Inner { string id = 1; }

@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package invalid.merge_incompatible_sources;
+
+option go_package = "example.com/invalid/merge_incompatible_sources";
+
+import "plainjson/plainjson.proto";
+
+// One source is a scalar, the other an object.
+message Root {
+  option (plainjson.message) = {
+    generate: true,
+    merge: [{key: "pid", from: ["a.n", "b"]}]
+  };
+  Inner a = 1;
+  Inner b = 2;
+}
+message Inner { int32 n = 1; }

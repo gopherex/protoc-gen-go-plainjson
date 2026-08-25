@@ -1,0 +1,9 @@
+# Invalid protos are compiled to a descriptor set only: they exist to make the
+# plugin fail, so no code is generated from them.
+lint:
+  use: []
+deps:
+generate:
+  inputs:
+    - directory: .
+  plugins: []

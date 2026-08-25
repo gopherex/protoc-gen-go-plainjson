@@ -1,0 +1,119 @@
+syntax = "proto3";
+
+package spec.keys;
+
+option go_package = "github.com/gopherex/protoc-gen-go-plainjson/example/spec/keys";
+
+import "plainjson/plainjson.proto";
+
+message Linux {
+  int32 pid = 1;
+  string cgroup_path = 2;
+}
+
+message Process {
+  Linux linux = 1;
+}
+
+// key_from LEAF x key_case CAMEL (both defaults).
+// {"pid":4242,"cgroupPath":"/sys/x"}
+message LeafCamel {
+  option (plainjson.message).generate = true;
+  Process process = 1;
+}
+
+// {"pid":4242,"cgroup_path":"/sys/x"}
+message LeafSnake {
+  option (plainjson.message) = {generate: true, key_case: KEY_CASE_SNAKE};
+  Process process = 1;
+}
+
+// {"pid":4242,"cgroup_path":"/sys/x"}
+message LeafOriginal {
+  option (plainjson.message) = {generate: true, key_case: KEY_CASE_ORIGINAL};
+  Process process = 1;
+}
+
+// {"processLinuxPid":4242,"processLinuxCgroupPath":"/sys/x"}
+message PathCamel {
+  option (plainjson.message) = {generate: true, key_from: KEY_FROM_PATH};
+  Process process = 1;
+}
+
+// {"process_linux_pid":4242,"process_linux_cgroup_path":"/sys/x"}
+message PathSnake {
+  option (plainjson.message) = {
+    generate: true, key_from: KEY_FROM_PATH, key_case: KEY_CASE_SNAKE
+  };
+  Process process = 1;
+}
+
+// key_from set per subtree: one branch by path, the other by leaf.
+// {"leftLinuxPid":1,"leftLinuxCgroupPath":"/l","pid":2,"cgroupPath":"/r"}
+message MixedKeyFrom {
+  option (plainjson.message).generate = true;
+  Process left = 1 [(plainjson.field).key_from = KEY_FROM_PATH];
+  Process right = 2;
+}
+
+// ---------------------------------------------------------------------------
+// name / prefix / suffix
+// ---------------------------------------------------------------------------
+
+message Renamed {
+  int32 pid = 1 [(plainjson.field).name = "process_id"];
+  string cgroup_path = 2;
+}
+
+// {"processId":4242,"cgroupPath":"/sys/x"}
+message NameOverride {
+  option (plainjson.message).generate = true;
+  Renamed linux = 1;
+}
+
+message Address {
+  string city = 1;
+}
+
+message Customer {
+  string name = 1;
+  Address addr = 2 [(plainjson.field).prefix = "addr_"];
+}
+
+// Prefixes accumulate outermost-first, and are applied before casing.
+// {"shipName":"Ann","shipAddrCity":"Berlin","billName":"Bob","billAddrCity":"Rome"}
+message PrefixAccumulation {
+  option (plainjson.message).generate = true;
+  Customer shipping = 1 [(plainjson.field).prefix = "ship_"];
+  Customer billing = 2 [(plainjson.field).prefix = "bill_"];
+}
+
+// Same, with KEY_CASE_ORIGINAL the literal underscore form survives.
+// {"ship_name":"Ann","ship_addr_city":"Berlin","bill_name":"Bob","bill_addr_city":"Rome"}
+message PrefixOriginalCase {
+  option (plainjson.message) = {generate: true, key_case: KEY_CASE_ORIGINAL};
+  Customer shipping = 1 [(plainjson.field).prefix = "ship_"];
+  Customer billing = 2 [(plainjson.field).prefix = "bill_"];
+}
+
+// {"cityHome":"Berlin","cityWork":"Rome"}
+message SuffixUse {
+  option (plainjson.message).generate = true;
+  Address home = 1 [(plainjson.field).suffix = "_home"];
+  Address work = 2 [(plainjson.field).suffix = "_work"];
+}
+
+// name on a message field changes the PATH segment, not a key.
+// {"shipCity":"Berlin"}
+message NameAffectsPathSegment {
+  option (plainjson.message) = {generate: true, key_from: KEY_FROM_PATH};
+  Address shipping_address = 1 [(plainjson.field).name = "ship"];
+}
+
+// key_case is inherited per subtree, siblings untouched.
+// {"pid":1,"cgroup_path":"/l","cgroupPath":"/r"}
+message MixedKeyCase {
+  option (plainjson.message).generate = true;
+  Linux left = 1 [(plainjson.field).key_case = KEY_CASE_SNAKE];
+  Linux right = 2;
+}

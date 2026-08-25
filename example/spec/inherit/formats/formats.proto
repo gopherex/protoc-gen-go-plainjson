@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package spec.inherit.formats;
+
+option go_package = "github.com/gopherex/protoc-gen-go-plainjson/example/spec/inherit/formats";
+
+
+import "plainjson/plainjson.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+// Every value-formatting default set at file level. Messages below inherit
+// them without repeating anything.
+option (plainjson.file) = {
+  generate_all: true,
+  key_case: KEY_CASE_ORIGINAL,
+  emit_empty: true,
+  enum_format: ENUM_FORMAT_NUMBER,
+  int64_format: INT64_FORMAT_NUMBER,
+  bytes_format: BYTES_FORMAT_HEX,
+  time_format: TIME_FORMAT_UNIX_SECONDS,
+  duration_format: DURATION_FORMAT_MILLIS,
+  cardinality: CARDINALITY_JOIN,
+  join_separator: "|",
+  index_separator: "@"
+};
+
+enum Level {
+  LEVEL_UNSPECIFIED = 0;
+  LEVEL_ONE = 1;
+}
+
+// All formats come from the file.
+// {"n":-3,"by":"010203","lvl":1,"ts":1787832000,"dur":1500,"argv":"a|b"}
+message InheritsFileFormats {
+  int64 n = 1;
+  bytes by = 2;
+  Level lvl = 3;
+  google.protobuf.Timestamp ts = 4;
+  google.protobuf.Duration dur = 5;
+  repeated string argv = 6;
+}
+
+// A message option overrides the file default; a field option overrides both.
+// {"n":"-3","other":-3,"by":"AQID"}
+message MessageOverridesFile {
+  option (plainjson.message) = {
+    int64_format: INT64_FORMAT_STRING,
+    bytes_format: BYTES_FORMAT_BASE64
+  };
+  int64 n = 1;
+  int64 other = 2 [(plainjson.field).int64_format = INT64_FORMAT_NUMBER];
+  bytes by = 3;
+}
+
+// index_separator inherited from the file (@), then overridden per field (~).
+// {"a@0":"x","a@1":"y","b~0":"p"}
+message IndexSeparators {
+  option (plainjson.message).cardinality = CARDINALITY_INDEXED;
+  repeated string a = 1;
+  repeated string b = 2 [(plainjson.field).index_separator = "~"];
+}
+
+// join_separator inherited from the file (|), then overridden per field.
+// {"a":"x|y","b":"p+q"}
+message JoinSeparators {
+  repeated string a = 1;
+  repeated string b = 2 [(plainjson.field).join_separator = "+"];
+}
+
+// The file says emit_empty; the message opts back out.
+// {} for an empty message
+message MessageOptsOutOfEmitEmpty {
+  option (plainjson.message).emit_empty = false;
+  int32 n = 1;
+}

@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package spec.inherit.collide;
+
+option go_package = "github.com/gopherex/protoc-gen-go-plainjson/example/spec/inherit/collide";
+
+
+import "plainjson/plainjson.proto";
+
+// Collision handling stated explicitly at file level. Both values equal the
+// built-in defaults, which is the point: stating them must not change results.
+option (plainjson.file) = {
+  generate_all: true,
+  collision_policy: COLLISION_POLICY_IGNORE,
+  collision_wins: COLLISION_WINS_FIRST,
+  key_case: KEY_CASE_ORIGINAL
+};
+
+message Left { string path = 1; }
+message Right { string path = 2; }
+
+// Explicit IGNORE/FIRST behaves exactly like the default.
+// {"path":"/left"}
+message ExplicitDefaults {
+  Left left = 1;
+  Right right = 2;
+}
+
+// The message switches the winner without touching the policy.
+// {"path":"/right"}
+message MessageSwitchesWinner {
+  option (plainjson.message).collision_wins = COLLISION_WINS_LAST;
+  Left left = 1;
+  Right right = 2;
+}
+
+// The message escalates the file policy to a runtime error.
+message MessageEscalatesPolicy {
+  option (plainjson.message).collision_policy = COLLISION_POLICY_ERROR_RUNTIME;
+  Left left = 1;
+  Right right = 2;
+}

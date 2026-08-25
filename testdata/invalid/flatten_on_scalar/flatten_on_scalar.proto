@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package invalid.flatten_on_scalar;
+
+option go_package = "example.com/invalid/flatten_on_scalar";
+
+import "plainjson/plainjson.proto";
+
+// Only message fields have an interior to flatten.
+message Root {
+  option (plainjson.message).generate = true;
+  int32 count = 1 [(plainjson.field).flatten = FLATTEN_MODE_DEEP];
+}

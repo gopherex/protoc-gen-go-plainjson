@@ -1,0 +1,82 @@
+[
+  {
+    "name": "flatten-cycle",
+    "file": "flatten_cycle/flatten_cycle.proto",
+    "want_error": "inline cycle"
+  },
+  {
+    "name": "pick-unknown-path",
+    "file": "pick_unknown_path/pick_unknown_path.proto",
+    "want_error": "not found"
+  },
+  {
+    "name": "pick-non-leaf",
+    "file": "pick_non_leaf/pick_non_leaf.proto",
+    "want_error": "resolves to a message"
+  },
+  {
+    "name": "pick-and-lift",
+    "file": "pick_and_lift/pick_and_lift.proto",
+    "want_error": "mutually exclusive"
+  },
+  {
+    "name": "flatten-on-scalar",
+    "file": "flatten_on_scalar/flatten_on_scalar.proto",
+    "want_error": "only message fields"
+  },
+  {
+    "name": "prefix-without-flatten",
+    "file": "prefix_without_flatten/prefix_without_flatten.proto",
+    "want_error": "has no effect"
+  },
+  {
+    "name": "join-on-messages",
+    "file": "join_on_messages/join_on_messages.proto",
+    "want_error": "add pick"
+  },
+  {
+    "name": "map-cardinality-on-repeated",
+    "file": "map_cardinality_on_repeated/map_cardinality_on_repeated.proto",
+    "want_error": "have no keys"
+  },
+  {
+    "name": "tag-outside-oneof",
+    "file": "tag_outside_oneof/tag_outside_oneof.proto",
+    "want_error": "not a oneof branch"
+  },
+  {
+    "name": "duplicate-merge-key",
+    "file": "duplicate_merge_key/duplicate_merge_key.proto",
+    "want_error": "declared twice"
+  },
+  {
+    "name": "merge-path-overlap",
+    "file": "merge_path_overlap/merge_path_overlap.proto",
+    "want_error": "used by rules"
+  },
+  {
+    "name": "merge-incompatible-sources",
+    "file": "merge_incompatible_sources/merge_incompatible_sources.proto",
+    "want_error": "different JSON types"
+  },
+  {
+    "name": "unknown-exclusive-field",
+    "file": "unknown_exclusive_field/unknown_exclusive_field.proto",
+    "want_error": "not found"
+  },
+  {
+    "name": "static-collision",
+    "file": "static_collision/static_collision.proto",
+    "want_error": "produced by two live sources"
+  },
+  {
+    "name": "constant-invalid-json",
+    "file": "constant_invalid_json/constant_invalid_json.proto",
+    "want_error": "value_json"
+  },
+  {
+    "name": "lift-unknown-path",
+    "file": "lift_unknown_path/lift_unknown_path.proto",
+    "want_error": "not found"
+  }
+]

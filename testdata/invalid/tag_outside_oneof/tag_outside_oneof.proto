@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package invalid.tag_outside_oneof;
+
+option go_package = "example.com/invalid/tag_outside_oneof";
+
+import "plainjson/plainjson.proto";
+
+// tag names a oneof branch; this field is not one.
+message Root {
+  option (plainjson.message).generate = true;
+  string a = 1 [(plainjson.field).tag = "X"];
+}

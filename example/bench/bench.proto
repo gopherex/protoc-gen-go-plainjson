@@ -1,0 +1,172 @@
+syntax = "proto3";
+
+package bench;
+
+option go_package = "github.com/gopherex/protoc-gen-go-plainjson/example/bench";
+
+import "plainjson/plainjson.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+// A flat scalar message: the floor of what any encoder has to do.
+message Scalars {
+  option (plainjson.message).generate = true;
+
+  string id = 1;
+  int32 pid = 2;
+  int64 bytes_read = 3;
+  uint64 offset = 4;
+  double load = 5;
+  bool active = 6;
+  bytes digest = 7;
+  Severity severity = 8;
+  google.protobuf.Timestamp observed = 9;
+  google.protobuf.Duration took = 10;
+}
+
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  SEVERITY_LOW = 1;
+  SEVERITY_HIGH = 2;
+}
+
+// A realistic telemetry event: five levels of nesting, a oneof, a map, a
+// repeated field and well-known types, flattened into one record.
+message Event {
+  option (plainjson.message) = {
+    generate: true,
+    key_case: KEY_CASE_SNAKE,
+    merge: [{key: "pid", from: ["process.linux.pid", "process.windows.process_id"]}]
+  };
+
+  string id = 1;
+  google.protobuf.Timestamp observed = 2 [(plainjson.field).time_format = TIME_FORMAT_UNIX_MILLI];
+  Process process = 3;
+  Network network = 4;
+  map<string, string> labels = 5 [(plainjson.field) = {
+    cardinality: CARDINALITY_INLINE_KEYS,
+    prefix: "lbl_",
+    key_case: KEY_CASE_ORIGINAL
+  }];
+  Debug debug = 6 [(plainjson.field).omit = true];
+}
+
+message Process {
+  Exe exe = 1;
+  oneof os {
+    option (plainjson.oneof) = {mode: ONEOF_MODE_TAGGED, discriminator: "os"};
+    Linux linux = 2;
+    Windows windows = 3;
+  }
+  repeated string argv = 4 [(plainjson.field) = {
+    cardinality: CARDINALITY_JOIN, join_separator: " "
+  }];
+}
+
+message Exe {
+  string path = 1 [(plainjson.field).name = "exe_path"];
+  string sha256 = 2;
+  User owner = 3;
+}
+
+message User {
+  string name = 1 [(plainjson.field).name = "owner_name"];
+  uint32 uid = 2;
+}
+
+message Linux {
+  int32 pid = 1;
+  Cgroup cgroup = 2 [(plainjson.field).prefix = "cgroup_"];
+  Ucred ucred = 3;
+}
+
+message Cgroup { string path = 1; }
+message Ucred { uint32 uid = 1; uint32 gid = 2; }
+
+message Windows {
+  int32 process_id = 1;
+  string sid = 2;
+}
+
+message Network {
+  string remote_ip = 1;
+  uint32 remote_port = 2;
+  Peer peer = 3;
+}
+
+message Peer { string host = 1; string asn = 2; }
+message Debug { string trace = 1; repeated string frames = 2; }
+
+// The same data with only the options a hand-written flattener could
+// reasonably reproduce: deep flatten, leaf keys, snake_case, first writer
+// wins. The benchmark compares the generated code against that hand-written
+// version, and a test asserts the two agree byte for byte.
+message EventPlain {
+  option (plainjson.message) = {generate: true, key_case: KEY_CASE_SNAKE};
+
+  string id = 1;
+  google.protobuf.Timestamp observed = 2;
+  ProcessPlain process = 3;
+  Network network = 4;
+}
+
+message ProcessPlain {
+  ExePlain exe = 1;
+  LinuxPlain linux = 2;
+  repeated string argv = 3;
+}
+
+message ExePlain {
+  string exe_path = 1;
+  string sha256 = 2;
+  UserPlain owner = 3;
+}
+
+// No renamed fields: a hand-written flattener has no way to know about them.
+message UserPlain {
+  string name = 1;
+  uint32 uid = 2;
+}
+
+message LinuxPlain {
+  int32 pid = 1;
+  Cgroup cgroup = 2;
+  Ucred ucred = 3;
+}
+
+// The same shape under each collision policy, to price the machinery each one
+// needs: a flag, a key tracker, or a buffered object.
+// Two live subtrees that really do claim the same key, three times over.
+message PathA {
+  string path = 1;
+  string owner = 2;
+  uint32 mode = 3;
+}
+
+message PathB {
+  string path = 1;
+  string sha256 = 2;
+  uint32 size = 3;
+}
+
+message CollideFirst {
+  option (plainjson.message).generate = true;
+  PathA a = 1;
+  PathB b = 2;
+}
+
+message CollideRuntime {
+  option (plainjson.message) = {
+    generate: true, collision_policy: COLLISION_POLICY_ERROR_RUNTIME
+  };
+  PathA a = 1;
+  PathB b = 2;
+}
+
+message CollideLast {
+  option (plainjson.message) = {
+    generate: true, collision_wins: COLLISION_WINS_LAST
+  };
+  PathA a = 1;
+  PathB b = 2;
+}

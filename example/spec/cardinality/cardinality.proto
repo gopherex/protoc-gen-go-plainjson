@@ -1,0 +1,149 @@
+syntax = "proto3";
+
+package spec.cardinality;
+
+option go_package = "github.com/gopherex/protoc-gen-go-plainjson/example/spec/cardinality";
+
+import "plainjson/plainjson.proto";
+
+message Sample {
+  int64 value = 1;
+  string unit = 2;
+}
+
+// Shared input for every mode below:
+//   samples: [{value:1,unit:"ms"},{value:2,unit:"ms"}]
+//   labels:  {"env":"prod","region":"eu"}   (maps iterate sorted by key)
+
+// {"samples":[{"value":"1","unit":"ms"},{"value":"2","unit":"ms"}],
+//  "labels":{"env":"prod","region":"eu"}}
+message Keep {
+  option (plainjson.message).generate = true;
+  repeated Sample samples = 1;
+  map<string, string> labels = 2;
+}
+
+// {"samples":{"value":"1","unit":"ms"},"labels":"prod"}
+message First {
+  option (plainjson.message) = {generate: true, cardinality: CARDINALITY_FIRST};
+  repeated Sample samples = 1;
+  map<string, string> labels = 2;
+}
+
+// {"samples":{"value":"2","unit":"ms"},"labels":"eu"}
+message Last {
+  option (plainjson.message) = {generate: true, cardinality: CARDINALITY_LAST};
+  repeated Sample samples = 1;
+  map<string, string> labels = 2;
+}
+
+// {"samples":2,"labels":2}
+message Count {
+  option (plainjson.message) = {generate: true, cardinality: CARDINALITY_COUNT};
+  repeated Sample samples = 1;
+  map<string, string> labels = 2;
+}
+
+// {"samples":"1;2","labels":"prod,eu","argv":"curl -sS"}
+message Join {
+  option (plainjson.message).generate = true;
+  repeated Sample samples = 1 [(plainjson.field) = {
+    pick: "value", cardinality: CARDINALITY_JOIN, join_separator: ";"
+  }];
+  map<string, string> labels = 2 [(plainjson.field).cardinality = CARDINALITY_JOIN];
+  repeated string argv = 3 [(plainjson.field) = {
+    cardinality: CARDINALITY_JOIN, join_separator: " "
+  }];
+}
+
+// {"samples_0_value":"1","samples_0_unit":"ms","samples_1_value":"2","samples_1_unit":"ms",
+//  "labels_0":"prod","labels_1":"eu"}
+message Indexed {
+  option (plainjson.message) = {
+    generate: true, cardinality: CARDINALITY_INDEXED, key_case: KEY_CASE_ORIGINAL
+  };
+  repeated Sample samples = 1;
+  map<string, string> labels = 2;
+}
+
+// Custom index separator: {"samples#0#value":"1",...}
+message IndexedSeparator {
+  option (plainjson.message) = {
+    generate: true,
+    cardinality: CARDINALITY_INDEXED,
+    index_separator: "#",
+    key_case: KEY_CASE_ORIGINAL
+  };
+  repeated Sample samples = 1;
+}
+
+// Elements merged into the parent, no index. Collisions resolved by policy:
+// with the default IGNORE/FIRST the first element wins.
+// {"value":"1","unit":"ms"}
+message Explode {
+  option (plainjson.message) = {generate: true, cardinality: CARDINALITY_EXPLODE};
+  repeated Sample samples = 1;
+}
+
+// {"labels":["env","region"]}
+message MapKeys {
+  option (plainjson.message).generate = true;
+  map<string, string> labels = 1 [(plainjson.field).cardinality = CARDINALITY_KEYS];
+}
+
+// {"labels":["prod","eu"]}
+message MapValues {
+  option (plainjson.message).generate = true;
+  map<string, string> labels = 1 [(plainjson.field).cardinality = CARDINALITY_VALUES];
+}
+
+// Map keys become JSON keys of the parent.
+// {"name":"http_reqs","lbl_env":"prod","lbl_region":"eu"}
+message MapInlineKeys {
+  option (plainjson.message) = {generate: true, key_case: KEY_CASE_ORIGINAL};
+  string name = 1;
+  map<string, string> labels = 2 [(plainjson.field) = {
+    cardinality: CARDINALITY_INLINE_KEYS, prefix: "lbl_"
+  }];
+}
+
+// Unprefixed INLINE_KEYS can collide with a static key at runtime only.
+// labels {"name":"cpu"} vs field name -> KeyCollisionError under ERROR_RUNTIME.
+message MapInlineKeysCollision {
+  option (plainjson.message) = {
+    generate: true,
+    key_case: KEY_CASE_ORIGINAL,
+    collision_policy: COLLISION_POLICY_ERROR_RUNTIME
+  };
+  string name = 1;
+  map<string, string> labels = 2 [(plainjson.field).cardinality = CARDINALITY_INLINE_KEYS];
+}
+
+// Non-string map keys are stringified the protojson way.
+// {"counts":{"1":"a","2":"b"}}
+message NonStringMapKeys {
+  option (plainjson.message).generate = true;
+  map<int32, string> counts = 1;
+}
+
+// Collections of messages keep flattening inside each element.
+// {"items":[{"a":"x","b":"y"}]}
+message Nested { string b = 1; }
+message Item { string a = 1; Nested n = 2; }
+message ElementsFlattenInside {
+  option (plainjson.message).generate = true;
+  repeated Item items = 1;
+}
+
+// Empty collections are omitted unless emit_empty is set.
+// {} / {"samples":[],"labels":{}}
+message EmptyCollections {
+  option (plainjson.message).generate = true;
+  repeated Sample samples = 1;
+  map<string, string> labels = 2;
+}
+message EmptyCollectionsEmitted {
+  option (plainjson.message) = {generate: true, emit_empty: true};
+  repeated Sample samples = 1;
+  map<string, string> labels = 2;
+}

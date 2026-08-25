@@ -1,0 +1,115 @@
+[
+  // Flatten modes: README#flatten-modes
+  {
+    "name": "flatten/deep-default",
+    "spec": "Flatten modes: DEEP is the built-in default",
+    "message": "spec.flatten.DeepDefault",
+    "input": {"id": "w", "out": {"a": "x", "in": {"b": "y"}}},
+    "want": "{\"id\":\"w\",\"a\":\"x\",\"b\":\"y\"}",
+    "flat": true
+  },
+  {
+    "name": "flatten/shallow",
+    "spec": "Flatten modes: SHALLOW hoists one level",
+    "message": "spec.flatten.Shallow",
+    "input": {"id": "w", "out": {"a": "x", "in": {"b": "y"}}},
+    "want": "{\"id\":\"w\",\"a\":\"x\",\"in\":{\"b\":\"y\"}}"
+  },
+  {
+    // NONE is a boundary decision for this message's own fields; the interior
+    // of Outer is still its own (default DEEP) mode.
+    "name": "flatten/none-boundary",
+    "spec": "Flatten modes / Boundaries compose",
+    "message": "spec.flatten.NoneMode",
+    "input": {"id": "w", "out": {"a": "x", "in": {"b": "y"}}},
+    "want": "{\"id\":\"w\",\"out\":{\"a\":\"x\",\"b\":\"y\"}}"
+  },
+  {
+    "name": "flatten/none-with-inlined-field",
+    "spec": "Flatten modes: nested by default, one field inlined",
+    "message": "spec.flatten.NoneWithInlinedField",
+    "input": {"id": "w", "out": {"a": "x", "in": {"b": "y"}}},
+    "want": "{\"id\":\"w\",\"a\":\"x\",\"b\":\"y\"}",
+    "flat": true
+  },
+  {
+    // The type says NONE, so the grouped key holds a protojson-shaped subtree.
+    "name": "flatten/deep-with-nested-field",
+    "spec": "Flatten modes: keep one subtree nested",
+    "message": "spec.flatten.DeepWithNestedField",
+    "input": {"id": "w", "out": {"a": "x", "in": {"b": "y"}}},
+    "want": "{\"id\":\"w\",\"out\":{\"a\":\"x\",\"in\":{\"b\":\"y\"}}}"
+  },
+  {
+    "name": "flatten/nested-key-flat-interior",
+    "spec": "Boundaries compose: the field owns the boundary, the type the interior",
+    "message": "spec.flatten.NestedKeyFlatInterior",
+    "input": {"id": "w", "out": {"a": "x", "in": {"b": "y"}}},
+    "want": "{\"id\":\"w\",\"out\":{\"a\":\"x\",\"b\":\"y\"}}"
+  },
+  {
+    "name": "flatten/grouped-but-flat-inside",
+    "spec": "Boundaries compose: flat header, one grouped object, flat inside it",
+    "message": "spec.flatten.GroupedButFlatInside",
+    "input": {"id": "w", "out": {"a": "x", "in": {"b": "y"}}},
+    "want": "{\"id\":\"w\",\"out\":{\"a\":\"x\",\"b\":\"y\"}}"
+  },
+  {
+    "name": "flatten/same-type-both-ways",
+    "spec": "Boundaries compose: one type inlined at one site, nested at another",
+    "message": "spec.flatten.SameTypeBothWays",
+    "input": {"inlined": {"a": "x", "in": {"b": "y"}}, "grouped": {"a": "x2", "in": {"b": "y2"}}},
+    "want": "{\"a\":\"x\",\"b\":\"y\",\"grouped\":{\"a\":\"x2\",\"b\":\"y2\"}}"
+  },
+  {
+    "name": "flatten/max-depth-message",
+    "spec": "Flatten modes / Depth limit",
+    "message": "spec.flatten.MaxDepthMessage",
+    "input": {"id": "w", "out": {"a": "x", "in": {"b": "y"}}},
+    "want": "{\"id\":\"w\",\"a\":\"x\",\"in\":{\"b\":\"y\"}}"
+  },
+  {
+    "name": "flatten/max-depth-field",
+    "spec": "Depth limit: bound a subtree from the outside",
+    "message": "spec.flatten.MaxDepthField",
+    "input": {"a": "1", "l1": {"b": "2", "l2": {"c": "3", "l3": {"d": "4"}}}},
+    "want": "{\"a\":\"1\",\"b\":\"2\",\"l2\":{\"c\":\"3\",\"l3\":{\"d\":\"4\"}}}"
+  },
+  {
+    "name": "flatten/recursive-none",
+    "spec": "Depth limit: a recursive type that never flattens",
+    "message": "spec.flatten.RecursiveNone",
+    "input": {"root": {"name": "a", "child": {"name": "b", "child": {"name": "c"}}}},
+    "want": "{\"root\":{\"name\":\"a\",\"child\":{\"name\":\"b\",\"child\":{\"name\":\"c\"}}}}"
+  },
+  {
+    // Level 2's "name" loses to level 1's under IGNORE/FIRST; level 3 is past
+    // the bound and stays an object.
+    "name": "flatten/recursive-bounded",
+    "spec": "Depth limit: a bound at the use site makes recursion legal",
+    "message": "spec.flatten.RecursiveBounded",
+    "input": {"root": {"name": "a", "child": {"name": "b", "child": {"name": "c"}}}},
+    "want": "{\"name\":\"a\",\"child\":{\"name\":\"c\"}}"
+  },
+  {
+    "name": "flatten/stops-at-collections",
+    "spec": "Core model / Leaves: collections end a path",
+    "message": "spec.flatten.StopsAtCollections",
+    "input": {"id": "w", "items": [{"a": "x", "in": {"b": "y"}}], "tags": {"k": "v"}},
+    "want": "{\"id\":\"w\",\"items\":[{\"a\":\"x\",\"b\":\"y\"}],\"tags\":{\"k\":\"v\"}}"
+  },
+  {
+    "name": "flatten/empty-message",
+    "spec": "Generated API: an empty message marshals to an empty object",
+    "message": "spec.flatten.DeepDefault",
+    "want": "{}",
+    "flat": true
+  },
+  {
+    "name": "flatten/nil-receiver",
+    "spec": "Generated API: a nil receiver marshals to null",
+    "message": "spec.flatten.DeepDefault",
+    "nil_receiver": true,
+    "want": "null"
+  }
+]

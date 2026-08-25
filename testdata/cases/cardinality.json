@@ -1,0 +1,146 @@
+[
+  {
+    "name": "cardinality/keep",
+    "spec": "Cardinality: KEEP, the default",
+    "message": "spec.cardinality.Keep",
+    "input": {
+      "samples": [{"value": "1", "unit": "ms"}, {"value": "2", "unit": "ms"}],
+      "labels": {"env": "prod", "region": "eu"}
+    },
+    "want": "{\"samples\":[{\"value\":\"1\",\"unit\":\"ms\"},{\"value\":\"2\",\"unit\":\"ms\"}],\"labels\":{\"env\":\"prod\",\"region\":\"eu\"}}"
+  },
+  {
+    "name": "cardinality/first",
+    "spec": "Cardinality: FIRST; maps iterate sorted by key",
+    "message": "spec.cardinality.First",
+    "input": {
+      "samples": [{"value": "1", "unit": "ms"}, {"value": "2", "unit": "ms"}],
+      "labels": {"env": "prod", "region": "eu"}
+    },
+    "want": "{\"samples\":{\"value\":\"1\",\"unit\":\"ms\"},\"labels\":\"prod\"}"
+  },
+  {
+    "name": "cardinality/last",
+    "spec": "Cardinality: LAST; for maps the highest key",
+    "message": "spec.cardinality.Last",
+    "input": {
+      "samples": [{"value": "1", "unit": "ms"}, {"value": "2", "unit": "ms"}],
+      "labels": {"env": "prod", "region": "eu"}
+    },
+    "want": "{\"samples\":{\"value\":\"2\",\"unit\":\"ms\"},\"labels\":\"eu\"}"
+  },
+  {
+    "name": "cardinality/count",
+    "spec": "Cardinality: COUNT",
+    "message": "spec.cardinality.Count",
+    "input": {
+      "samples": [{"value": "1", "unit": "ms"}, {"value": "2", "unit": "ms"}],
+      "labels": {"env": "prod", "region": "eu"}
+    },
+    "want": "{\"samples\":2,\"labels\":2}",
+    "flat": true
+  },
+  {
+    "name": "cardinality/join",
+    "spec": "Cardinality: JOIN, with pick for message elements",
+    "message": "spec.cardinality.Join",
+    "input": {
+      "samples": [{"value": "1", "unit": "ms"}, {"value": "2", "unit": "ms"}],
+      "labels": {"env": "prod", "region": "eu"},
+      "argv": ["curl", "-sS"]
+    },
+    "want": "{\"samples\":\"1;2\",\"labels\":\"prod,eu\",\"argv\":\"curl -sS\"}",
+    "flat": true
+  },
+  {
+    "name": "cardinality/indexed",
+    "spec": "Cardinality: INDEXED builds one key per element",
+    "message": "spec.cardinality.Indexed",
+    "input": {
+      "samples": [{"value": "1", "unit": "ms"}, {"value": "2", "unit": "ms"}],
+      "labels": {"env": "prod", "region": "eu"}
+    },
+    "want": "{\"samples_0_value\":\"1\",\"samples_0_unit\":\"ms\",\"samples_1_value\":\"2\",\"samples_1_unit\":\"ms\",\"labels_0\":\"prod\",\"labels_1\":\"eu\"}",
+    "flat": true
+  },
+  {
+    "name": "cardinality/indexed-separator",
+    "spec": "Cardinality: index_separator",
+    "message": "spec.cardinality.IndexedSeparator",
+    "input": {"samples": [{"value": "1", "unit": "ms"}, {"value": "2", "unit": "ms"}]},
+    "want": "{\"samples#0#value\":\"1\",\"samples#0#unit\":\"ms\",\"samples#1#value\":\"2\",\"samples#1#unit\":\"ms\"}"
+  },
+  {
+    // Both elements claim value/unit; under the default IGNORE/FIRST the first
+    // element wins and the second is dropped.
+    "name": "cardinality/explode",
+    "spec": "Cardinality: EXPLODE merges elements into the parent",
+    "message": "spec.cardinality.Explode",
+    "input": {"samples": [{"value": "1", "unit": "ms"}, {"value": "2", "unit": "s"}]},
+    "want": "{\"value\":\"1\",\"unit\":\"ms\"}",
+    "flat": true
+  },
+  {
+    "name": "cardinality/map-keys",
+    "spec": "Cardinality: KEYS, map only",
+    "message": "spec.cardinality.MapKeys",
+    "input": {"labels": {"env": "prod", "region": "eu"}},
+    "want": "{\"labels\":[\"env\",\"region\"]}"
+  },
+  {
+    "name": "cardinality/map-values",
+    "spec": "Cardinality: VALUES, map only",
+    "message": "spec.cardinality.MapValues",
+    "input": {"labels": {"env": "prod", "region": "eu"}},
+    "want": "{\"labels\":[\"prod\",\"eu\"]}"
+  },
+  {
+    "name": "cardinality/map-inline-keys",
+    "spec": "Cardinality: INLINE_KEYS promotes map keys to JSON keys",
+    "message": "spec.cardinality.MapInlineKeys",
+    "input": {"name": "http_reqs", "labels": {"env": "prod", "region": "eu"}},
+    "want": "{\"name\":\"http_reqs\",\"lbl_env\":\"prod\",\"lbl_region\":\"eu\"}",
+    "flat": true
+  },
+  {
+    "name": "cardinality/map-inline-keys-no-collision",
+    "spec": "Cardinality: INLINE_KEYS without a clashing key succeeds",
+    "message": "spec.cardinality.MapInlineKeysCollision",
+    "input": {"name": "http_reqs", "labels": {"env": "prod"}},
+    "want": "{\"name\":\"http_reqs\",\"env\":\"prod\"}"
+  },
+  {
+    "name": "cardinality/map-inline-keys-collision",
+    "spec": "Key collisions: only ERROR_RUNTIME sees a dynamic map-key collision",
+    "message": "spec.cardinality.MapInlineKeysCollision",
+    "input": {"name": "http_reqs", "labels": {"name": "cpu"}},
+    "want_error": "key_collision",
+    "error_key": "name"
+  },
+  {
+    "name": "cardinality/non-string-map-keys",
+    "spec": "Cardinality: non-string map keys are stringified the protojson way",
+    "message": "spec.cardinality.NonStringMapKeys",
+    "input": {"counts": {"1": "a", "2": "b"}},
+    "want": "{\"counts\":{\"1\":\"a\",\"2\":\"b\"}}"
+  },
+  {
+    "name": "cardinality/elements-flatten-inside",
+    "spec": "Cardinality: message elements keep flattening inside the collection",
+    "message": "spec.cardinality.ElementsFlattenInside",
+    "input": {"items": [{"a": "x", "n": {"b": "y"}}]},
+    "want": "{\"items\":[{\"a\":\"x\",\"b\":\"y\"}]}"
+  },
+  {
+    "name": "cardinality/empty-collections-omitted",
+    "spec": "Empty values and presence: empty collections are omitted",
+    "message": "spec.cardinality.EmptyCollections",
+    "want": "{}"
+  },
+  {
+    "name": "cardinality/empty-collections-emitted",
+    "spec": "Empty values and presence: emit_empty keeps them",
+    "message": "spec.cardinality.EmptyCollectionsEmitted",
+    "want": "{\"samples\":[],\"labels\":{}}"
+  }
+]

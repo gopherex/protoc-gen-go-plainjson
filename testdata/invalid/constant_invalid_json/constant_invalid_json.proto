@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package invalid.constant_invalid_json;
+
+option go_package = "example.com/invalid/constant_invalid_json";
+
+import "plainjson/plainjson.proto";
+
+// value_json must parse as JSON.
+message Root {
+  option (plainjson.message) = {
+    generate: true,
+    constants: [{key: "schema", value_json: "not json"}]
+  };
+  string id = 1;
+}

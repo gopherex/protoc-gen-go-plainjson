@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package invalid.merge_path_overlap;
+
+option go_package = "example.com/invalid/merge_path_overlap";
+
+import "plainjson/plainjson.proto";
+
+// One source path feeds two rules.
+message Root {
+  option (plainjson.message) = {
+    generate: true,
+    merge: [
+      {key: "pid", from: ["a.n"]},
+      {key: "process_id", from: ["a.n"]}
+    ]
+  };
+  Inner a = 1;
+}
+message Inner { int32 n = 1; }

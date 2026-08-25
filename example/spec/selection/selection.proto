@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package spec.selection;
+
+option go_package = "github.com/gopherex/protoc-gen-go-plainjson/example/spec/selection";
+
+import "plainjson/plainjson.proto";
+import "google/protobuf/struct.proto";
+
+message Money { int64 amount = 1; string currency = 2; }
+message Contact { string email = 1; string phone = 2; }
+message Profile { Contact contact = 1; string nickname = 2; }
+message User { Profile profile = 1; string id = 2; }
+message Debug { string trace = 1; }
+
+// omit drops the field and its whole subtree.
+// {"id":"o1"}
+message Omit {
+  option (plainjson.message).generate = true;
+  string id = 1;
+  Debug debug = 2 [(plainjson.field).omit = true];
+}
+
+// pick replaces a message field with one value from inside it. The key comes
+// from the annotated field unless name says otherwise.
+// {"total":"1000","email":"ann@example.com"}
+message Pick {
+  option (plainjson.message).generate = true;
+  Money total = 1 [(plainjson.field).pick = "amount"];
+  User buyer = 2 [(plainjson.field) = {pick: "profile.contact.email", name: "email"}];
+}
+
+// pick without name keeps the field's own key.
+// {"buyer":"ann@example.com"}
+message PickKeepsFieldName {
+  option (plainjson.message).generate = true;
+  User buyer = 1 [(plainjson.field).pick = "profile.contact.email"];
+}
+
+message Stats { int32 total = 1; }
+message Bee { string id = 1; string title = 2; }
+message Aye { Bee b = 1; Stats stats = 2; }
+message Deep { Aye a = 1; string ignored = 2; }
+
+// lift hoists selected paths and drops the rest of the subtree.
+// {"id":"r-7","title":"Weekly","total":42}
+message Lift {
+  option (plainjson.message).generate = true;
+  Deep deep = 1 [(plainjson.field) = {
+    lift: [
+      {path: "a.b.id", as: "id"},
+      {path: "a.b.title", as: "title"},
+      {path: "a.stats.total"}
+    ]
+  }];
+}
+
+// lift inside a subtree that is otherwise flattened normally.
+// {"keep":"k","email":"ann@example.com"}
+message LiftAlongsideFlatten {
+  option (plainjson.message).generate = true;
+  string keep = 1;
+  User buyer = 2 [(plainjson.field) = {
+    lift: [{path: "profile.contact.email"}]
+  }];
+}
+
+// pick can reach into a well-known Struct value.
+// {"userId":"u-7"}
+message PickFromStruct {
+  option (plainjson.message).generate = true;
+  google.protobuf.Struct attrs = 1 [(plainjson.field) = {
+    pick: "user.id", name: "user_id"
+  }];
+}

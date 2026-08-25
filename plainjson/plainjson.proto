@@ -1,0 +1,431 @@
+syntax = "proto3";
+
+package plainjson;
+
+option go_package = "github.com/gopherex/protoc-gen-go-plainjson/plainjson";
+
+import "google/protobuf/descriptor.proto";
+
+// ---------------------------------------------------------------------------
+// Enums
+//
+// Every enum has an UNSPECIFIED zero value meaning "inherit from the enclosing
+// scope": field -> oneof -> message -> file -> plugin flag -> built-in default.
+// ---------------------------------------------------------------------------
+
+// How a message subtree is folded into its parent object.
+enum FlattenMode {
+  FLATTEN_MODE_UNSPECIFIED = 0;
+  // Recursively hoist every leaf of the subtree into the parent object.
+  FLATTEN_MODE_DEEP = 1;
+  // Hoist one level; message fields below stay nested objects.
+  FLATTEN_MODE_SHALLOW = 2;
+  // Keep the subtree as its own nested object.
+  FLATTEN_MODE_NONE = 3;
+}
+
+// How the JSON key of a flattened leaf is derived.
+enum KeyFrom {
+  KEY_FROM_UNSPECIFIED = 0;
+  // Name of the leaf field only. Different paths ending in the same field name
+  // collapse onto one key; this is the point of flattening.
+  KEY_FROM_LEAF = 1;
+  // Every field name along the path from the generated message to the leaf,
+  // joined. Collision-free by construction, at the cost of longer keys.
+  KEY_FROM_PATH = 2;
+}
+
+// Casing applied to derived JSON keys.
+enum KeyCase {
+  KEY_CASE_UNSPECIFIED = 0;
+  // lowerCamelCase, matching protojson's json_name.
+  KEY_CASE_CAMEL = 1;
+  // snake_case.
+  KEY_CASE_SNAKE = 2;
+  // The proto field name, verbatim.
+  KEY_CASE_ORIGINAL = 3;
+}
+
+// What happens to a field that holds more than one value. This describes
+// cardinality, not type, so it applies to `repeated` and `map` alike.
+enum Cardinality {
+  CARDINALITY_UNSPECIFIED = 0;
+  // repeated -> JSON array, map -> JSON object.
+  CARDINALITY_KEEP = 1;
+  // Only the first element. Maps iterate sorted by key, so this is the lowest key.
+  CARDINALITY_FIRST = 2;
+  // Only the last element; for maps, the highest key.
+  CARDINALITY_LAST = 3;
+  // Number of elements.
+  CARDINALITY_COUNT = 4;
+  // Scalar elements joined into one string with join_separator.
+  CARDINALITY_JOIN = 5;
+  // One key per element: <key><index_separator><i>, flattening below it.
+  CARDINALITY_INDEXED = 6;
+  // Every element's keys merged into the parent with no index. Elements that
+  // produce the same key are resolved by the collision policy.
+  CARDINALITY_EXPLODE = 7;
+  // Map only: array of map keys.
+  CARDINALITY_KEYS = 8;
+  // Map only: array of map values.
+  CARDINALITY_VALUES = 9;
+  // Map only: map keys become JSON keys of the parent object. Collisions here
+  // are only detectable at runtime.
+  CARDINALITY_INLINE_KEYS = 10;
+}
+
+// How a oneof is rendered.
+enum OneofMode {
+  ONEOF_MODE_UNSPECIFIED = 0;
+  // Fields of the active branch are hoisted into the parent object. Default
+  // when the enclosing flatten mode is DEEP or SHALLOW.
+  ONEOF_MODE_INLINE = 1;
+  // protojson shape: the branch field name is the key. Default under
+  // FLATTEN_MODE_NONE.
+  ONEOF_MODE_BRANCH_KEY = 2;
+  // Branch fields are hoisted, plus a discriminator key naming the branch.
+  ONEOF_MODE_TAGGED = 3;
+  // One key (value_key) holding the branch value as an object.
+  ONEOF_MODE_SINGLE_KEY = 4;
+  // Only the discriminator key; the branch value is dropped.
+  ONEOF_MODE_DISCRIMINATOR_ONLY = 5;
+  // The oneof contributes nothing.
+  ONEOF_MODE_OMIT = 6;
+}
+
+// What to do when two live sources produce the same JSON key. Sources that are
+// mutually exclusive (oneof branches, declared exclusive groups, sources of one
+// merge rule) never collide and are exempt from all policies.
+enum CollisionPolicy {
+  COLLISION_POLICY_UNSPECIFIED = 0;
+  // Keep one value per CollisionWins, silently. The default: under flattening,
+  // colliding keys are the norm rather than an error.
+  COLLISION_POLICY_IGNORE = 1;
+  // Fail protoc for statically detectable collisions.
+  COLLISION_POLICY_ERROR_GENERATE = 2;
+  // Track written keys and fail at encode time on a real duplicate. The only
+  // policy that catches dynamic collisions (INLINE_KEYS, EXPLODE, exclusive
+  // groups that turn out not to be exclusive).
+  COLLISION_POLICY_ERROR_RUNTIME = 3;
+}
+
+// Which writer wins a collision under COLLISION_POLICY_IGNORE.
+enum CollisionWins {
+  COLLISION_WINS_UNSPECIFIED = 0;
+  // The first entry in traversal order that produces a non-empty value. Fully
+  // streaming: the decision is made before the key is written.
+  COLLISION_WINS_FIRST = 1;
+  // The last writer. Requires buffering the object before flush.
+  COLLISION_WINS_LAST = 2;
+}
+
+// How a merge rule resolves several non-empty sources.
+enum MergeConflict {
+  MERGE_CONFLICT_UNSPECIFIED = 0;
+  // First source in declaration order that has a value.
+  MERGE_CONFLICT_FIRST_NON_EMPTY = 1;
+  // Last source that has a value.
+  MERGE_CONFLICT_LAST_NON_EMPTY = 2;
+  // Fail at encode time if more than one source is non-empty.
+  MERGE_CONFLICT_ERROR = 3;
+}
+
+// Enum value representation.
+enum EnumFormat {
+  ENUM_FORMAT_UNSPECIFIED = 0;
+  // The value name, as protojson does.
+  ENUM_FORMAT_NAME = 1;
+  // The numeric value.
+  ENUM_FORMAT_NUMBER = 2;
+}
+
+// 64-bit integer representation.
+enum Int64Format {
+  INT64_FORMAT_UNSPECIFIED = 0;
+  // JSON string, as protojson does.
+  INT64_FORMAT_STRING = 1;
+  // JSON number. Values beyond 2^53 lose precision in most JSON readers.
+  INT64_FORMAT_NUMBER = 2;
+}
+
+// bytes representation.
+enum BytesFormat {
+  BYTES_FORMAT_UNSPECIFIED = 0;
+  // Standard padded base64, as protojson does.
+  BYTES_FORMAT_BASE64 = 1;
+  // URL-safe base64, unpadded.
+  BYTES_FORMAT_BASE64_URL = 2;
+  // Lowercase hex.
+  BYTES_FORMAT_HEX = 3;
+  // Array of byte values.
+  BYTES_FORMAT_ARRAY = 4;
+}
+
+// google.protobuf.Timestamp representation.
+enum TimeFormat {
+  TIME_FORMAT_UNSPECIFIED = 0;
+  // RFC 3339 string, as protojson does.
+  TIME_FORMAT_RFC3339 = 1;
+  TIME_FORMAT_UNIX_SECONDS = 2;
+  TIME_FORMAT_UNIX_MILLI = 3;
+  TIME_FORMAT_UNIX_MICRO = 4;
+  TIME_FORMAT_UNIX_NANO = 5;
+}
+
+// google.protobuf.Duration representation.
+enum DurationFormat {
+  DURATION_FORMAT_UNSPECIFIED = 0;
+  // Seconds with a fractional part and an "s" suffix, as protojson does.
+  DURATION_FORMAT_PROTOJSON = 1;
+  // Number of seconds.
+  DURATION_FORMAT_SECONDS = 2;
+  // Number of milliseconds.
+  DURATION_FORMAT_MILLIS = 3;
+  // Number of nanoseconds.
+  DURATION_FORMAT_NANOS = 4;
+}
+
+// ---------------------------------------------------------------------------
+// Helper messages
+// ---------------------------------------------------------------------------
+
+// One hoisted path inside a field's subtree.
+message Lift {
+  // Dot-separated field path relative to the annotated field. Must resolve to
+  // a leaf.
+  string path = 1;
+  // JSON key for the lifted value. Empty means the leaf's own name.
+  string as = 2;
+}
+
+// Collects several source paths into one key, in priority order.
+message MergeRule {
+  // The JSON key produced.
+  string key = 1;
+  // Dot-separated paths relative to the annotated message, in priority order.
+  // These paths are removed from the normal flatten plan.
+  repeated string from = 2;
+  // How several non-empty sources are resolved.
+  MergeConflict on_conflict = 3;
+  // Emit the key even when every source is empty.
+  optional bool emit_empty = 4;
+  // Use `key` verbatim, ignoring key_case.
+  bool raw_key = 5;
+
+  // Value formatting for the merged value; unset means inherit.
+  Cardinality cardinality = 10;
+  string join_separator = 11;
+  EnumFormat enum_format = 20;
+  Int64Format int64_format = 21;
+  BytesFormat bytes_format = 22;
+  TimeFormat time_format = 23;
+  DurationFormat duration_format = 24;
+}
+
+// A fixed key/value pair with no protobuf source.
+message Constant {
+  // The JSON key.
+  string key = 1;
+  // Raw JSON value, for example "\"v1\"" or "[1,2]". Must parse as JSON.
+  string value_json = 2;
+  // Use `key` verbatim, ignoring key_case.
+  bool raw_key = 3;
+}
+
+// A set of fields that never carry a value at the same time. Members may share
+// JSON keys without being reported as a collision.
+message ExclusiveGroup {
+  // Field names, or dot paths for deeper fields, relative to the message.
+  repeated string fields = 1;
+}
+
+// ---------------------------------------------------------------------------
+// Option messages
+// ---------------------------------------------------------------------------
+
+// File-level defaults for every message in the file.
+message FileOptions {
+  // Generate marshalers for every message in the file. Per-message
+  // `generate: false` still opts out.
+  bool generate_all = 1;
+  // Default for MessageOptions.override_marshal_json.
+  bool override_marshal_json = 2;
+
+  FlattenMode flatten = 10;
+  KeyFrom key_from = 11;
+  KeyCase key_case = 12;
+  // Message levels to descend before leaving the rest nested. 0 = unlimited;
+  // optional so a message can lift a file-level bound.
+  optional uint32 max_depth = 13;
+  // Emit keys whose value is empty or zero.
+  optional bool emit_empty = 14;
+
+  CollisionPolicy collision_policy = 20;
+  CollisionWins collision_wins = 21;
+
+  Cardinality cardinality = 30;
+  // Separator for CARDINALITY_JOIN. Empty means ",".
+  string join_separator = 31;
+  // Separator for CARDINALITY_INDEXED. Empty means "_".
+  string index_separator = 32;
+
+  EnumFormat enum_format = 40;
+  Int64Format int64_format = 41;
+  BytesFormat bytes_format = 42;
+  TimeFormat time_format = 43;
+  DurationFormat duration_format = 44;
+}
+
+// Message-level options. Every formatting option overrides the file value.
+message MessageOptions {
+  // Emit MarshalPlainJSON/EncodePlainJSON for this message. Optional so that
+  // `generate: false` can opt out of a file-level generate_all; unset means
+  // inherit.
+  optional bool generate = 1;
+  // Also emit MarshalJSON, so encoding/json produces the flat form.
+  optional bool override_marshal_json = 2;
+
+  FlattenMode flatten = 10;
+  KeyFrom key_from = 11;
+  KeyCase key_case = 12;
+  optional uint32 max_depth = 13;
+  optional bool emit_empty = 14;
+
+  CollisionPolicy collision_policy = 20;
+  CollisionWins collision_wins = 21;
+
+  Cardinality cardinality = 30;
+  string join_separator = 31;
+  string index_separator = 32;
+
+  EnumFormat enum_format = 40;
+  Int64Format int64_format = 41;
+  BytesFormat bytes_format = 42;
+  TimeFormat time_format = 43;
+  DurationFormat duration_format = 44;
+
+  // Coalesce several source paths into one key.
+  repeated MergeRule merge = 50;
+  // Fixed key/value pairs, emitted first in declaration order.
+  repeated Constant constants = 51;
+  // Field sets that are mutually exclusive in practice.
+  repeated ExclusiveGroup exclusive_groups = 52;
+}
+
+// Oneof-level options, declared inside the oneof block.
+message OneofOptions {
+  // How this oneof is rendered.
+  OneofMode mode = 1;
+  // Key holding the branch tag under TAGGED / DISCRIMINATOR_ONLY.
+  // Empty means "type".
+  string discriminator = 2;
+  // Key holding the value under SINGLE_KEY. Empty means the oneof name.
+  string value_key = 3;
+  // When no branch is set, write nothing. False writes null under the
+  // discriminator or value key. Unset means true.
+  optional bool omit_if_unset = 4;
+
+  KeyFrom key_from = 11;
+  KeyCase key_case = 12;
+  optional bool emit_empty = 14;
+
+  Cardinality cardinality = 30;
+  string join_separator = 31;
+  string index_separator = 32;
+
+  EnumFormat enum_format = 40;
+  Int64Format int64_format = 41;
+  BytesFormat bytes_format = 42;
+  TimeFormat time_format = 43;
+  DurationFormat duration_format = 44;
+}
+
+// Field-level options.
+message FieldOptions {
+  // Drop the field and its whole subtree.
+  bool omit = 1;
+  // Replace this path segment's name. Accumulated prefixes still apply.
+  string name = 2;
+  // Prepended to every key produced by this subtree. Accumulates across levels.
+  string prefix = 3;
+  // Appended to every key produced by this subtree. Accumulates across levels.
+  string suffix = 4;
+  // Boundary decision only: is this message field inlined into its parent
+  // (DEEP/SHALLOW) or does it keep its own key (NONE). What happens below the
+  // boundary is decided by the field type's own flatten mode. Use max_depth to
+  // bound a subtree from the outside.
+  FlattenMode flatten = 5;
+  // Dot path inside this field; the field is replaced by that single value.
+  // Mutually exclusive with lift.
+  string pick = 6;
+  // Hoist selected paths out of the subtree; the rest of it is dropped.
+  // Mutually exclusive with pick.
+  repeated Lift lift = 7;
+  // Discriminator value when this field is a oneof branch. Empty means the
+  // branch field name.
+  string tag = 8;
+  // Depth limit for this subtree. 0 = unlimited.
+  optional uint32 max_depth = 9;
+
+  Cardinality cardinality = 20;
+  string join_separator = 21;
+  string index_separator = 22;
+
+  KeyFrom key_from = 30;
+  KeyCase key_case = 31;
+  optional bool emit_empty = 32;
+
+  EnumFormat enum_format = 40;
+  Int64Format int64_format = 41;
+  BytesFormat bytes_format = 42;
+  TimeFormat time_format = 43;
+  DurationFormat duration_format = 44;
+}
+
+// Enum-type-level options.
+message EnumOptions {
+  // Default representation for every field of this enum type. A field-level
+  // enum_format still overrides it.
+  EnumFormat format = 1;
+  // Strip the SCREAMING_SNAKE type prefix from emitted value names.
+  bool strip_prefix = 2;
+}
+
+// Enum-value-level options.
+message EnumValueOptions {
+  // Emitted name for this value.
+  string name = 1;
+  // Emit nothing when a field holds this value.
+  bool omit = 2;
+}
+
+// ---------------------------------------------------------------------------
+// Extensions
+//
+// 60040 is this plugin's extension number, distinct from neighbouring
+// gopherex plugins so several of them can annotate one descriptor.
+// ---------------------------------------------------------------------------
+
+extend google.protobuf.FileOptions {
+  FileOptions file = 60040;
+}
+
+extend google.protobuf.MessageOptions {
+  MessageOptions message = 60040;
+}
+
+extend google.protobuf.FieldOptions {
+  FieldOptions field = 60040;
+}
+
+extend google.protobuf.OneofOptions {
+  OneofOptions oneof = 60040;
+}
+
+extend google.protobuf.EnumOptions {
+  EnumOptions enum = 60040;
+}
+
+extend google.protobuf.EnumValueOptions {
+  EnumValueOptions enum_value = 60040;
+}

@@ -1,0 +1,119 @@
+[
+  {
+    "name": "scalars/baseline",
+    "spec": "Scalars and well-known types: the protojson baseline",
+    "message": "spec.scalars.Baseline",
+    "input": {"i32": -1, "u32": 2, "i64": "-3", "u64": "4", "f32": 1.5, "f64": -2.5,
+              "b": true, "s": "hi", "by": "AQID", "sev": "SEVERITY_HIGH"},
+    "want": "{\"i32\":-1,\"u32\":2,\"i64\":\"-3\",\"u64\":\"4\",\"f32\":1.5,\"f64\":-2.5,\"b\":true,\"s\":\"hi\",\"by\":\"AQID\",\"sev\":\"SEVERITY_HIGH\"}",
+    "flat": true
+  },
+  {
+    "name": "scalars/special-floats",
+    "spec": "Scalars: NaN and infinities keep their protojson spelling",
+    "message": "spec.scalars.SpecialFloats",
+    "input": {"nan": "NaN", "inf": "Infinity", "ninf": "-Infinity", "negzero": -0},
+    "want": "{\"nan\":\"NaN\",\"inf\":\"Infinity\",\"ninf\":\"-Infinity\",\"negzero\":-0}"
+  },
+  {
+    "name": "scalars/int64-as-number",
+    "spec": "Scalars: int64_format NUMBER",
+    "message": "spec.scalars.Int64AsNumber",
+    "input": {"i64": "-3", "u64": "4"},
+    "want": "{\"i64\":-3,\"u64\":4}"
+  },
+  {
+    "name": "scalars/int64-field-overrides-message",
+    "spec": "Option inheritance: a field option beats the message default",
+    "message": "spec.scalars.Int64Mixed",
+    "input": {"asString": "-3", "asNumber": "-3"},
+    "want": "{\"asString\":\"-3\",\"asNumber\":-3}"
+  },
+  {
+    "name": "scalars/bytes-formats",
+    "spec": "Scalars: bytes_format BASE64, BASE64_URL, HEX, ARRAY",
+    "message": "spec.scalars.BytesFormats",
+    "input": {"b64": "AQID", "b64url": "AQID", "hex": "AQID", "arr": "AQID"},
+    "want": "{\"b64\":\"AQID\",\"b64url\":\"AQID\",\"hex\":\"010203\",\"arr\":[1,2,3]}"
+  },
+  {
+    "name": "scalars/enum-formats",
+    "spec": "Enum options: name, number, strip_prefix, enum-level format, value rename",
+    "message": "spec.scalars.EnumFormats",
+    "input": {"name": "SEVERITY_HIGH", "number": "SEVERITY_HIGH", "stripped": "STRIPPED_HIGH",
+              "enumLevel": "NUMERIC_ONE", "renamed": "RENAMED_LOW"},
+    "want": "{\"name\":\"SEVERITY_HIGH\",\"number\":2,\"stripped\":\"HIGH\",\"enumLevel\":1,\"renamed\":\"low\"}"
+  },
+  {
+    "name": "scalars/enum-value-omitted",
+    "spec": "Enum options: (plainjson.enum_value).omit hides one value",
+    "message": "spec.scalars.EnumFormats",
+    "input": {"renamed": "RENAMED_HIDDEN"},
+    "want": "{}"
+  },
+  {
+    "name": "scalars/enum-field-overrides-type",
+    "spec": "Enum options: a field format beats the enum-level format",
+    "message": "spec.scalars.EnumFieldOverridesType",
+    "input": {"forcedName": "NUMERIC_ONE"},
+    "want": "{\"forcedName\":\"NUMERIC_ONE\"}"
+  },
+  {
+    "name": "scalars/well-known-types",
+    "spec": "Scalars and well-known types: WKTs are leaves",
+    "message": "spec.scalars.WellKnown",
+    "input": {
+      "ts": "2026-08-25T12:00:00Z", "dur": "1.5s", "sv": "x", "iv": 7, "bv": true,
+      "st": {"a": 1}, "val": "v", "lst": [1, 2], "emp": {}, "fm": "aB,c",
+      "any": {"@type": "type.googleapis.com/spec.scalars.Baseline", "i32": 1}
+    },
+    "want": "{\"ts\":\"2026-08-25T12:00:00Z\",\"dur\":\"1.500s\",\"sv\":\"x\",\"iv\":7,\"bv\":true,\"st\":{\"a\":1},\"val\":\"v\",\"lst\":[1,2],\"emp\":{},\"fm\":\"aB,c\",\"any\":{\"@type\":\"type.googleapis.com/spec.scalars.Baseline\",\"i32\":1}}"
+  },
+  {
+    "name": "scalars/time-formats",
+    "spec": "Scalars: time_format RFC3339, seconds, milli, micro, nano",
+    "message": "spec.scalars.TimeFormats",
+    "input": {"rfc": "2026-08-25T12:00:00Z", "secs": "2026-08-25T12:00:00Z",
+              "millis": "2026-08-25T12:00:00Z", "micros": "2026-08-25T12:00:00Z",
+              "nanos": "2026-08-25T12:00:00Z"},
+    "want": "{\"rfc\":\"2026-08-25T12:00:00Z\",\"secs\":1787659200,\"millis\":1787659200000,\"micros\":1787659200000000,\"nanos\":1787659200000000000}",
+    "flat": true
+  },
+  {
+    "name": "scalars/duration-formats",
+    "spec": "Scalars: duration_format PROTOJSON, seconds, millis, nanos",
+    "message": "spec.scalars.DurationFormats",
+    "input": {"pj": "1.5s", "secs": "1.5s", "millis": "1.5s", "nanos": "1.5s"},
+    "want": "{\"pj\":\"1.500s\",\"secs\":1.5,\"millis\":1500,\"nanos\":1500000000}"
+  },
+  {
+    "name": "scalars/formats-propagate",
+    "spec": "Option inheritance: formatting options propagate down a subtree",
+    "message": "spec.scalars.FormatsPropagate",
+    "input": {"inner": {"ts": "2026-08-25T12:00:00Z", "n": "5"}},
+    "want": "{\"ts\":1787659200000,\"n\":5}",
+    "flat": true
+  },
+  {
+    "name": "scalars/explicit-protojson-defaults",
+    "spec": "Scalars: spelling out every default must change nothing",
+    "message": "spec.scalars.ExplicitProtojsonDefaults",
+    "input": {"by": "AQID", "ts": "2026-08-25T12:00:00Z", "dur": "1.5s",
+              "sev": "SEVERITY_HIGH", "argv": ["a", "b"], "pid": "7"},
+    "want": "{\"by\":\"AQID\",\"ts\":\"2026-08-25T12:00:00Z\",\"dur\":\"1.500s\",\"sev\":\"SEVERITY_HIGH\",\"argv\":[\"a\",\"b\"],\"pid\":\"7\"}"
+  },
+  {
+    "name": "scalars/message-level-time-formats",
+    "spec": "Option inheritance: message-level time and duration formats",
+    "message": "spec.scalars.MessageLevelTimeFormats",
+    "input": {"a": "2026-08-25T12:00:00Z", "b": "2026-08-25T12:00:00Z", "took": "1.5s"},
+    "want": "{\"a\":1787659200000,\"b\":1787659200000,\"took\":1500}"
+  },
+  {
+    "name": "scalars/message-level-enum-bytes-join",
+    "spec": "Option inheritance: message-level enum, bytes and join options",
+    "message": "spec.scalars.MessageLevelEnumBytesJoin",
+    "input": {"sev": "SEVERITY_HIGH", "by": "AQID", "argv": ["a", "b"]},
+    "want": "{\"sev\":2,\"by\":\"010203\",\"argv\":\"a::b\"}"
+  }
+]

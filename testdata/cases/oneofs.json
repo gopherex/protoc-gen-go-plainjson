@@ -1,0 +1,147 @@
+[
+  {
+    "name": "oneof/inline-click",
+    "spec": "Oneof handling: ONEOF_MODE_INLINE, the default under flattening",
+    "message": "spec.oneofs.InlineMode",
+    "input": {"id": "e1", "click": {"x": 10, "y": 20}},
+    "want": "{\"id\":\"e1\",\"x\":10,\"y\":20}",
+    "flat": true
+  },
+  {
+    "name": "oneof/inline-scroll",
+    "spec": "Oneof handling: the other branch of the same oneof",
+    "message": "spec.oneofs.InlineMode",
+    "input": {"id": "e1", "scroll": {"dy": 5}},
+    "want": "{\"id\":\"e1\",\"dy\":5}",
+    "flat": true
+  },
+  {
+    "name": "oneof/branch-key",
+    "spec": "Oneof handling: ONEOF_MODE_BRANCH_KEY, the protojson shape",
+    "message": "spec.oneofs.BranchKeyMode",
+    "input": {"id": "e1", "click": {"x": 10, "y": 20}},
+    "want": "{\"id\":\"e1\",\"click\":{\"x\":10,\"y\":20}}"
+  },
+  {
+    "name": "oneof/tagged",
+    "spec": "Oneof handling: ONEOF_MODE_TAGGED writes the discriminator in the oneof's position",
+    "message": "spec.oneofs.TaggedMode",
+    "input": {"id": "e1", "click": {"x": 10, "y": 20}},
+    "want": "{\"id\":\"e1\",\"type\":\"click\",\"x\":10,\"y\":20}",
+    "flat": true
+  },
+  {
+    "name": "oneof/tagged-custom-tag",
+    "spec": "Oneof handling: tag overrides the discriminator value for one branch",
+    "message": "spec.oneofs.TaggedMode",
+    "input": {"id": "e1", "scroll": {"dy": 5}},
+    "want": "{\"id\":\"e1\",\"type\":\"SCROLL_EV\",\"dy\":5}"
+  },
+  {
+    "name": "oneof/single-key",
+    "spec": "Oneof handling: ONEOF_MODE_SINGLE_KEY",
+    "message": "spec.oneofs.SingleKeyMode",
+    "input": {"id": "e1", "click": {"x": 10, "y": 20}},
+    "want": "{\"id\":\"e1\",\"payload\":{\"x\":10,\"y\":20}}"
+  },
+  {
+    "name": "oneof/discriminator-only",
+    "spec": "Oneof handling: ONEOF_MODE_DISCRIMINATOR_ONLY drops the value",
+    "message": "spec.oneofs.DiscriminatorOnlyMode",
+    "input": {"id": "e1", "click": {"x": 10, "y": 20}},
+    "want": "{\"id\":\"e1\",\"type\":\"click\"}"
+  },
+  {
+    "name": "oneof/omit",
+    "spec": "Oneof handling: ONEOF_MODE_OMIT contributes nothing",
+    "message": "spec.oneofs.OmitMode",
+    "input": {"id": "e1", "click": {"x": 10, "y": 20}},
+    "want": "{\"id\":\"e1\"}"
+  },
+  {
+    "name": "oneof/unset-omitted",
+    "spec": "Oneof options: omit_if_unset defaults to true",
+    "message": "spec.oneofs.TaggedMode",
+    "input": {"id": "e1"},
+    "want": "{\"id\":\"e1\"}"
+  },
+  {
+    "name": "oneof/unset-emits-null",
+    "spec": "Oneof options: omit_if_unset false writes null under the discriminator",
+    "message": "spec.oneofs.OmitIfUnsetFalse",
+    "input": {"id": "e1"},
+    "want": "{\"id\":\"e1\",\"type\":null}"
+  },
+  {
+    "name": "oneof/unset-emits-null-set-branch",
+    "spec": "Oneof options: omit_if_unset only affects the unset case",
+    "message": "spec.oneofs.OmitIfUnsetFalse",
+    "input": {"id": "e1", "click": {"x": 10, "y": 20}},
+    "want": "{\"id\":\"e1\",\"type\":\"click\",\"x\":10,\"y\":20}"
+  },
+  {
+    "name": "oneof/scalar-branch-string",
+    "spec": "Oneof handling: a scalar branch keeps its own field name",
+    "message": "spec.oneofs.ScalarBranches",
+    "input": {"uuid": "7f3a"},
+    "want": "{\"uuid\":\"7f3a\"}"
+  },
+  {
+    "name": "oneof/scalar-branch-int",
+    "spec": "Oneof handling: int64 branch, protojson string form",
+    "message": "spec.oneofs.ScalarBranches",
+    "input": {"seq": "91"},
+    "want": "{\"seq\":\"91\"}"
+  },
+  {
+    "name": "oneof/scalar-branches-merged-string",
+    "spec": "Oneof handling: branches renamed onto one key, legal because exclusive",
+    "message": "spec.oneofs.ScalarBranchesMerged",
+    "input": {"uuid": "7f3a"},
+    "want": "{\"id\":\"7f3a\"}"
+  },
+  {
+    "name": "oneof/scalar-branches-merged-int",
+    "spec": "Oneof handling: the other branch lands on the same key",
+    "message": "spec.oneofs.ScalarBranchesMerged",
+    "input": {"seq": "91"},
+    "want": "{\"id\":\"91\"}"
+  },
+  {
+    "name": "oneof/exclusive-leaf-collapse-linux",
+    "spec": "Key collisions / Not a collision: oneof branches share a key",
+    "message": "spec.oneofs.ExclusiveLeafCollapse",
+    "input": {"linux": {"pid": 4242, "cgroup": "/sys/x"}},
+    "want": "{\"pid\":4242,\"cgroup\":\"/sys/x\"}",
+    "flat": true
+  },
+  {
+    "name": "oneof/exclusive-leaf-collapse-windows",
+    "spec": "Key collisions / Not a collision: the same key from the other branch",
+    "message": "spec.oneofs.ExclusiveLeafCollapse",
+    "input": {"windows": {"pid": 77, "sid": "S-1-5"}},
+    "want": "{\"pid\":77,\"sid\":\"S-1-5\"}",
+    "flat": true
+  },
+  {
+    "name": "oneof/oneof-level-formats",
+    "spec": "Oneof options: formatting set on the oneof applies to every branch",
+    "message": "spec.oneofs.OneofLevelFormats",
+    "input": {"a": {"n": "-3", "by": "AQID", "argv": ["a", "b"]}},
+    "want": "{\"n\":-3,\"by\":\"010203\",\"argv\":\"a/b\"}"
+  },
+  {
+    "name": "oneof/oneof-level-time-formats",
+    "spec": "Oneof options: time, duration and enum formats",
+    "message": "spec.oneofs.OneofLevelTimeFormats",
+    "input": {"t": {"ts": "2026-08-25T12:00:00Z", "dur": "1.5s", "lvl": "LEVEL_ONE"}},
+    "want": "{\"ts\":1787659200,\"dur\":1500,\"lvl\":1}"
+  },
+  {
+    "name": "oneof/branch-overrides-oneof",
+    "spec": "Option inheritance: a branch field overrides the oneof-level format",
+    "message": "spec.oneofs.BranchOverridesOneof",
+    "input": {"a": {"n": "-3"}},
+    "want": "{\"n\":\"-3\"}"
+  }
+]

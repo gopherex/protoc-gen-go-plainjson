@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package invalid.map_cardinality_on_repeated;
+
+option go_package = "example.com/invalid/map_cardinality_on_repeated";
+
+import "plainjson/plainjson.proto";
+
+// KEYS is meaningful for maps only.
+message Root {
+  option (plainjson.message).generate = true;
+  repeated string items = 1 [(plainjson.field).cardinality = CARDINALITY_KEYS];
+}

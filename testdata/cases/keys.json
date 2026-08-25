@@ -1,0 +1,99 @@
+[
+  {
+    "name": "keys/leaf-camel",
+    "spec": "Key naming: KEY_FROM_LEAF x KEY_CASE_CAMEL, both defaults",
+    "message": "spec.keys.LeafCamel",
+    "input": {"process": {"linux": {"pid": 4242, "cgroupPath": "/sys/x"}}},
+    "want": "{\"pid\":4242,\"cgroupPath\":\"/sys/x\"}",
+    "flat": true
+  },
+  {
+    "name": "keys/leaf-snake",
+    "spec": "Key naming: KEY_CASE_SNAKE",
+    "message": "spec.keys.LeafSnake",
+    "input": {"process": {"linux": {"pid": 4242, "cgroupPath": "/sys/x"}}},
+    "want": "{\"pid\":4242,\"cgroup_path\":\"/sys/x\"}"
+  },
+  {
+    "name": "keys/leaf-original",
+    "spec": "Key naming: KEY_CASE_ORIGINAL keeps the proto field name",
+    "message": "spec.keys.LeafOriginal",
+    "input": {"process": {"linux": {"pid": 4242, "cgroupPath": "/sys/x"}}},
+    "want": "{\"pid\":4242,\"cgroup_path\":\"/sys/x\"}"
+  },
+  {
+    "name": "keys/path-camel",
+    "spec": "Key naming: KEY_FROM_PATH joins the whole path",
+    "message": "spec.keys.PathCamel",
+    "input": {"process": {"linux": {"pid": 4242, "cgroupPath": "/sys/x"}}},
+    "want": "{\"processLinuxPid\":4242,\"processLinuxCgroupPath\":\"/sys/x\"}"
+  },
+  {
+    "name": "keys/path-snake",
+    "spec": "Key naming: KEY_FROM_PATH with KEY_CASE_SNAKE",
+    "message": "spec.keys.PathSnake",
+    "input": {"process": {"linux": {"pid": 4242, "cgroupPath": "/sys/x"}}},
+    "want": "{\"process_linux_pid\":4242,\"process_linux_cgroup_path\":\"/sys/x\"}"
+  },
+  {
+    "name": "keys/mixed-key-from",
+    "spec": "Key naming: key_from set per subtree, siblings untouched",
+    "message": "spec.keys.MixedKeyFrom",
+    "input": {
+      "left": {"linux": {"pid": 1, "cgroupPath": "/l"}},
+      "right": {"linux": {"pid": 2, "cgroupPath": "/r"}}
+    },
+    "want": "{\"leftLinuxPid\":1,\"leftLinuxCgroupPath\":\"/l\",\"pid\":2,\"cgroupPath\":\"/r\"}"
+  },
+  {
+    "name": "keys/name-override",
+    "spec": "Key naming: name renames a leaf key",
+    "message": "spec.keys.NameOverride",
+    "input": {"linux": {"pid": 4242, "cgroupPath": "/sys/x"}},
+    "want": "{\"processId\":4242,\"cgroupPath\":\"/sys/x\"}"
+  },
+  {
+    "name": "keys/prefix-accumulation",
+    "spec": "Key naming: prefixes accumulate outermost-first, applied before casing",
+    "message": "spec.keys.PrefixAccumulation",
+    "input": {
+      "shipping": {"name": "Ann", "addr": {"city": "Berlin"}},
+      "billing": {"name": "Bob", "addr": {"city": "Rome"}}
+    },
+    "want": "{\"shipName\":\"Ann\",\"shipAddrCity\":\"Berlin\",\"billName\":\"Bob\",\"billAddrCity\":\"Rome\"}",
+    "flat": true
+  },
+  {
+    "name": "keys/prefix-original-case",
+    "spec": "Key naming: KEY_CASE_ORIGINAL keeps the literal underscore form",
+    "message": "spec.keys.PrefixOriginalCase",
+    "input": {
+      "shipping": {"name": "Ann", "addr": {"city": "Berlin"}},
+      "billing": {"name": "Bob", "addr": {"city": "Rome"}}
+    },
+    "want": "{\"ship_name\":\"Ann\",\"ship_addr_city\":\"Berlin\",\"bill_name\":\"Bob\",\"bill_addr_city\":\"Rome\"}"
+  },
+  {
+    "name": "keys/suffix",
+    "spec": "Key naming: suffix",
+    "message": "spec.keys.SuffixUse",
+    "input": {"home": {"city": "Berlin"}, "work": {"city": "Rome"}},
+    "want": "{\"cityHome\":\"Berlin\",\"cityWork\":\"Rome\"}"
+  },
+  {
+    "name": "keys/name-affects-path-segment",
+    "spec": "Key naming: name changes the segment used by KEY_FROM_PATH",
+    "message": "spec.keys.NameAffectsPathSegment",
+    "input": {"shippingAddress": {"city": "Berlin"}},
+    "want": "{\"shipCity\":\"Berlin\"}"
+  },
+  {
+    // right.pid collides with left.pid and loses under IGNORE/FIRST; the two
+    // cgroup_path keys differ only by casing, so both survive.
+    "name": "keys/mixed-key-case",
+    "spec": "Option inheritance: formatting options propagate down a subtree",
+    "message": "spec.keys.MixedKeyCase",
+    "input": {"left": {"pid": 1, "cgroupPath": "/l"}, "right": {"pid": 2, "cgroupPath": "/r"}},
+    "want": "{\"pid\":1,\"cgroup_path\":\"/l\",\"cgroupPath\":\"/r\"}"
+  }
+]

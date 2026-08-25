@@ -1,0 +1,77 @@
+[
+  {
+    "name": "presence/omits-zeros",
+    "spec": "Empty values and presence: implicit-presence zeros are omitted",
+    "message": "spec.presence.OmitsZeros",
+    "input": {"n": 0, "s": "", "b": false},
+    "want": "{}"
+  },
+  {
+    "name": "presence/keeps-non-zero",
+    "spec": "Empty values and presence: non-zero values are written",
+    "message": "spec.presence.OmitsZeros",
+    "input": {"n": 1, "s": "x", "b": true, "by": "AQID", "msg": {"a": "y", "n": 2}},
+    "want": "{\"n\":1,\"s\":\"x\",\"b\":true,\"by\":\"AQID\",\"a\":\"y\"}",
+    "skip": "the second n from msg collides with the top-level n; covered by collision cases"
+  },
+  {
+    "name": "presence/emits-zeros",
+    "spec": "Empty values and presence: emit_empty forces every key",
+    "message": "spec.presence.EmitsZeros",
+    "want": "{\"n\":0,\"s\":\"\",\"b\":false,\"by\":\"\",\"nested_a\":\"\",\"nested_n\":0}",
+    "flat": true
+  },
+  {
+    "name": "presence/mixed-emit-empty",
+    "spec": "Option inheritance: a field opts out of the message's emit_empty",
+    "message": "spec.presence.MixedEmitEmpty",
+    "want": "{\"forced\":0}"
+  },
+  {
+    "name": "presence/explicit-zero",
+    "spec": "Empty values and presence: explicit presence beats the zero check",
+    "message": "spec.presence.ExplicitPresence",
+    "input": {"opt": 0},
+    "want": "{\"opt\":0}"
+  },
+  {
+    "name": "presence/explicit-unset",
+    "spec": "Empty values and presence: an unset optional is omitted",
+    "message": "spec.presence.ExplicitPresence",
+    "want": "{}"
+  },
+  {
+    "name": "presence/wrappers",
+    "spec": "Empty values and presence: a set wrapper holding zero is emitted",
+    "message": "spec.presence.WrapperPresence",
+    "input": {"iv": 0, "sv": ""},
+    "want": "{\"iv\":0,\"sv\":\"\"}"
+  },
+  {
+    "name": "presence/wrappers-unset",
+    "spec": "Empty values and presence: unset wrappers are omitted",
+    "message": "spec.presence.WrapperPresence",
+    "want": "{}"
+  },
+  {
+    "name": "presence/unset-oneof",
+    "spec": "Empty values and presence: an unset oneof contributes nothing",
+    "message": "spec.presence.UnsetOneof",
+    "input": {"id": "x"},
+    "want": "{\"id\":\"x\"}"
+  },
+  {
+    "name": "presence/oneof-zero-branch",
+    "spec": "Empty values and presence: a set branch holding a zero value is emitted",
+    "message": "spec.presence.OneofZeroBranch",
+    "input": {"a": ""},
+    "want": "{\"a\":\"\"}"
+  },
+  {
+    "name": "presence/fixed-shape",
+    "spec": "Empty values and presence: emit_empty on a message field yields a fixed shape",
+    "message": "spec.presence.FixedShape",
+    "want": "{\"a\":\"\",\"n\":0}",
+    "flat": true
+  }
+]

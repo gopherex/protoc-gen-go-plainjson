@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   test:
+    name: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -34,3 +35,50 @@ jobs:
         run: go build ./...
       - name: go test -race
         run: go test -race ./...
+      - name: go mod tidy is clean
+        run: |
+          go mod tidy
+          if ! git diff --quiet go.mod go.sum; then
+            echo "::error::go mod tidy changed go.mod/go.sum:"; git diff go.mod go.sum; exit 1
+          fi
+
+  generate:
+    name: generated code is up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+          cache-dependency-path: go.sum
+      - name: install codegen tools
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install github.com/easyp-tech/easyp/cmd/easyp@v0.16.6
+      # The checked-in *.pb.plainjson.go and the descriptor fixtures must match
+      # what the current plugin produces from the current protos.
+      - name: regenerate
+        run: |
+          make gen
+          make gen-invalid
+      - name: no drift
+        run: |
+          if ! git diff --quiet; then
+            echo "::error::generated files are stale — run 'make gen && make gen-invalid':"
+            git diff --stat
+            exit 1
+          fi
+
+  bench:
+    name: benchmarks run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+          cache-dependency-path: go.sum
+      # Not a performance gate: just proof the benchmarks and their baselines
+      # still compile and agree.
+      - name: smoke-run benchmarks
+        run: go test ./example/bench/ -bench . -benchtime=10x -run TestBaselinesAgree

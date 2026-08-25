@@ -6,31 +6,51 @@ MODULE := github.com/gopherex/protoc-gen-go-plainjson
 # v2+ needs semantic import versioning (/vN in the module path), unsupported
 # here — keep releases on v0/v1.
 MAX_MAJOR := 1
-EXAMPLE_DIR := $(CURDIR)/example
+SPEC_DIR := $(CURDIR)/example/spec
+INVALID_DIR := $(CURDIR)/testdata/invalid
 
-.PHONY: help build gen test tidy release
+.PHONY: help build gen gen-opts gen-invalid test bench tidy release
 
 help:
-	@echo "make build    - build bin/protoc-gen-go-plainjson"
-	@echo "make gen      - regenerate example/golden via easyp"
-	@echo "make test     - go vet + test (like CI)"
-	@echo "make tidy     - go mod tidy"
-	@echo "make release  - interactive tag + push (vX.Y.Z); triggers the Release workflow"
+	@echo "make build       - build bin/protoc-gen-go-plainjson"
+	@echo "make gen-opts    - regenerate plainjson/plainjson.pb.go from the option proto"
+	@echo "make gen         - regenerate the spec protos and the descriptor fixture"
+	@echo "make gen-invalid - recompile testdata/invalid into its descriptor fixture"
+	@echo "make test        - gofmt + go vet + go test (like CI)"
+	@echo "make bench       - run the benchmarks in example/bench"
+	@echo "make tidy        - go mod tidy"
+	@echo "make release     - interactive tag + push (vX.Y.Z); triggers the Release workflow"
 
 build:
 	go build -o $(CURDIR)/bin/protoc-gen-go-plainjson ./
 
-gen: build
-	cd $(EXAMPLE_DIR) && easyp generate
+# The option proto, the spec protos and the benchmark corpus share one easyp
+# run. The descriptor set it writes is the fixture the generation tests drive
+# the plugin with, so no protoc is needed at test time.
+gen gen-opts: build
+	easyp generate --descriptor_set_out $(CURDIR)/testdata/spec-descriptors.binpb --include_imports
+
+# Protos that must be rejected. Compiled to a descriptor set only: no code is
+# generated from them.
+gen-invalid:
+	cd $(INVALID_DIR) && easyp generate --root $(CURDIR) \
+		--descriptor_set_out descriptors.binpb --include_imports
 
 test:
+	out=$$(gofmt -l .)
+	if [ -n "$$out" ]; then echo "gofmt needed:"; echo "$$out"; exit 1; fi
 	go vet ./...
 	go test ./...
+
+bench:
+	go test ./example/bench/ -bench . -benchmem -benchtime=3s -run XXX
 
 tidy:
 	go mod tidy
 
 # Interactive release: recreate the latest tag on HEAD, or bump major/minor/patch.
+# Pushing the vX.Y.Z tag triggers .github/workflows/release.yml.
+release: recreate the latest tag on HEAD, or bump major/minor/patch.
 # Pushing the vX.Y.Z tag triggers .github/workflows/release.yml.
 release:
 	@cd "$$(git rev-parse --show-toplevel)"

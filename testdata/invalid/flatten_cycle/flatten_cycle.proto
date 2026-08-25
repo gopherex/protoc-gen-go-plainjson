@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package invalid.flatten_cycle;
+
+option go_package = "example.com/invalid/flatten_cycle";
+
+import "plainjson/plainjson.proto";
+
+// A and B flatten into each other with no bound: the plan never terminates.
+message A {
+  option (plainjson.message).generate = true;
+  B b = 1;
+}
+message B {
+  A a = 1;
+}

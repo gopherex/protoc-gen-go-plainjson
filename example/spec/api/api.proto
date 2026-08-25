@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package spec.api;
+
+option go_package = "github.com/gopherex/protoc-gen-go-plainjson/example/spec/api";
+option (plainjson.file) = {
+  generate_all: true,
+  key_case: KEY_CASE_SNAKE
+};
+
+import "plainjson/plainjson.proto";
+
+// generate_all covers this message; the file-level key_case applies.
+// {"user_id":"u-1","inner_value":"v"}
+message CoveredByFileOption {
+  string user_id = 1;
+  Inner inner = 2;
+}
+
+message Inner {
+  string inner_value = 1;
+}
+
+// Per-message opt-out of generate_all: no marshaler is emitted for this one.
+message OptedOut {
+  option (plainjson.message).generate = false;
+  string user_id = 1;
+}
+
+// A message option overrides the file default.
+// {"userId":"u-1"}
+message OverridesFileCase {
+  option (plainjson.message).key_case = KEY_CASE_CAMEL;
+  string user_id = 1;
+}
+
+// override_marshal_json also emits MarshalJSON, so encoding/json sees the flat
+// form and the two must agree byte for byte.
+message OverridesMarshalJSON {
+  option (plainjson.message).override_marshal_json = true;
+  string user_id = 1;
+  Inner inner = 2;
+}
+
+// Constants are emitted first, in declaration order, and take part in
+// collision detection like any other key.
+// {"schema":"v1","source":"agent","flags":["flat","lossy"],"id":"e-1"}
+message Constants {
+  option (plainjson.message) = {
+    constants: [
+      {key: "schema", value_json: "\"v1\""},
+      {key: "source", value_json: "\"agent\""},
+      {key: "flags", value_json: "[\"flat\",\"lossy\"]"}
+    ]
+  };
+  string id = 1;
+}
+
+// raw_key keeps the key verbatim, ignoring key_case.
+// {"X-Schema":"v1","schema_version":"v1"}
+message ConstantRawKey {
+  option (plainjson.message) = {
+    constants: [
+      {key: "X-Schema", value_json: "\"v1\"", raw_key: true},
+      {key: "schema_version", value_json: "\"v1\""}
+    ]
+  };
+}
+
+// An empty message marshals to an empty object; a nil receiver marshals to null.
+message Empty {}

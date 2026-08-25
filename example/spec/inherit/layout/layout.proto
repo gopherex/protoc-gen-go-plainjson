@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package spec.inherit.layout;
+
+option go_package = "github.com/gopherex/protoc-gen-go-plainjson/example/spec/inherit/layout";
+
+
+import "plainjson/plainjson.proto";
+
+// Layout defaults set at file level: shape, key derivation, depth, and the
+// extra encoding/json method.
+option (plainjson.file) = {
+  generate_all: true,
+  override_marshal_json: true,
+  flatten: FLATTEN_MODE_SHALLOW,
+  key_from: KEY_FROM_PATH,
+  key_case: KEY_CASE_SNAKE,
+  max_depth: 2
+};
+
+message Leaf3 { string d = 1; }
+message Leaf2 { string c = 1; Leaf3 l3 = 2; }
+message Leaf1 { string b = 1; Leaf2 l2 = 2; }
+
+// SHALLOW from the file: one level hoisted, keys by path, snake_case.
+// {"a":"1","l1_b":"2","l1_l2":{"c":"3","l3_d":"4"}}
+message InheritsShallow {
+  string a = 1;
+  Leaf1 l1 = 2;
+}
+
+// The message asks for DEEP, bounded by the file's max_depth of 2.
+// {"a":"1","l1_b":"2","l1_l2_c":"3","l1_l2_l3":{"d":"4"}}
+message DeepBoundedByFileDepth {
+  option (plainjson.message).flatten = FLATTEN_MODE_DEEP;
+  string a = 1;
+  Leaf1 l1 = 2;
+}
+
+// Types that flatten whatever the file says, so the depth bound is the only
+// thing that can stop the descent.
+message DeepLeaf3 {
+  option (plainjson.message).flatten = FLATTEN_MODE_DEEP;
+  string d = 1;
+}
+message DeepLeaf2 {
+  option (plainjson.message).flatten = FLATTEN_MODE_DEEP;
+  string c = 1;
+  DeepLeaf3 l3 = 2;
+}
+message DeepLeaf1 {
+  option (plainjson.message).flatten = FLATTEN_MODE_DEEP;
+  string b = 1;
+  DeepLeaf2 l2 = 2;
+}
+
+// The file bounds depth at 2; this message lifts the bound with an explicit
+// zero and takes keys from the leaf.
+// {"a":"1","b":"2","c":"3","d":"4"}
+message OverridesDepthAndKeys {
+  option (plainjson.message) = {
+    flatten: FLATTEN_MODE_DEEP,
+    key_from: KEY_FROM_LEAF,
+    max_depth: 0
+  };
+  string a = 1;
+  DeepLeaf1 l1 = 2;
+}
+
+// The same shape keeping the file's bound of 2: the third level stays nested.
+// {"a":"1","l1_b":"2","l1_l2_c":"3","l1_l2_l3":{"d":"4"}}
+message KeepsFileDepthBound {
+  option (plainjson.message).flatten = FLATTEN_MODE_DEEP;
+  string a = 1;
+  DeepLeaf1 l1 = 2;
+}
+
+// override_marshal_json is inherited from the file, so encoding/json agrees.
+message InheritsMarshalJSON {
+  string a = 1;
+}

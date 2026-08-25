@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package invalid.join_on_messages;
+
+option go_package = "example.com/invalid/join_on_messages";
+
+import "plainjson/plainjson.proto";
+
+// JOIN needs scalar elements; message elements need a pick first.
+message Root {
+  option (plainjson.message).generate = true;
+  repeated Item items = 1 [(plainjson.field).cardinality = CARDINALITY_JOIN];
+}
+message Item { string a = 1; }

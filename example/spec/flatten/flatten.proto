@@ -1,0 +1,169 @@
+syntax = "proto3";
+
+package spec.flatten;
+
+option go_package = "github.com/gopherex/protoc-gen-go-plainjson/example/spec/flatten";
+
+import "plainjson/plainjson.proto";
+
+// ---------------------------------------------------------------------------
+// Shared shape: Wrap -> Outer -> Inner, three levels.
+// ---------------------------------------------------------------------------
+
+message Inner {
+  string b = 1;
+}
+
+message Outer {
+  string a = 1;
+  Inner in = 2;
+}
+
+// Default mode: FLATTEN_MODE_DEEP.
+// {"id":"w","a":"x","b":"y"}
+message DeepDefault {
+  option (plainjson.message).generate = true;
+  string id = 1;
+  Outer out = 2;
+}
+
+// {"id":"w","a":"x","in":{"b":"y"}}
+message Shallow {
+  option (plainjson.message) = {generate: true, flatten: FLATTEN_MODE_SHALLOW};
+  string id = 1;
+  Outer out = 2;
+}
+
+// protojson shape. {"id":"w","out":{"a":"x","in":{"b":"y"}}}
+message NoneMode {
+  option (plainjson.message) = {generate: true, flatten: FLATTEN_MODE_NONE};
+  string id = 1;
+  Outer out = 2;
+}
+
+// Nested by default, one field inlined. {"id":"w","a":"x","b":"y"}
+message NoneWithInlinedField {
+  option (plainjson.message) = {generate: true, flatten: FLATTEN_MODE_NONE};
+  string id = 1;
+  Outer out = 2 [(plainjson.field).flatten = FLATTEN_MODE_DEEP];
+}
+
+// A type that keeps its own shape wherever it is used.
+message NestedInside {
+  option (plainjson.message).flatten = FLATTEN_MODE_NONE;
+  string a = 1;
+  Inner in = 2;
+}
+
+// Deep by default, one subtree kept nested. The field decides the boundary,
+// the type decides the interior: NestedInside stays protojson-shaped.
+// {"id":"w","out":{"a":"x","in":{"b":"y"}}}
+message DeepWithNestedField {
+  option (plainjson.message) = {generate: true, flatten: FLATTEN_MODE_DEEP};
+  string id = 1;
+  NestedInside out = 2 [(plainjson.field).flatten = FLATTEN_MODE_NONE];
+}
+
+// The same boundary over a type whose interior is DEEP: one grouped key,
+// flat inside it.
+// {"id":"w","out":{"a":"x","b":"y"}}
+message NestedKeyFlatInterior {
+  option (plainjson.message) = {generate: true, flatten: FLATTEN_MODE_DEEP};
+  string id = 1;
+  Outer out = 2 [(plainjson.field).flatten = FLATTEN_MODE_NONE];
+}
+
+// ---------------------------------------------------------------------------
+// Boundaries compose: the boundary belongs to the field, the interior to the
+// type. Flat header + one grouped object that is itself flat.
+// ---------------------------------------------------------------------------
+
+message FlatInside {
+  option (plainjson.message).flatten = FLATTEN_MODE_DEEP;
+  string a = 1;
+  Inner in = 2;
+}
+
+// {"id":"w","out":{"a":"x","b":"y"}}
+message GroupedButFlatInside {
+  option (plainjson.message) = {generate: true, flatten: FLATTEN_MODE_DEEP};
+  string id = 1;
+  FlatInside out = 2 [(plainjson.field).flatten = FLATTEN_MODE_NONE];
+}
+
+// The same type inlined at one use site, kept nested at another.
+// {"a":"x","b":"y","grouped":{"a":"x2","b":"y2"}}
+message SameTypeBothWays {
+  option (plainjson.message).generate = true;
+  FlatInside inlined = 1 [(plainjson.field).flatten = FLATTEN_MODE_DEEP];
+  FlatInside grouped = 2 [(plainjson.field).flatten = FLATTEN_MODE_NONE];
+}
+
+// ---------------------------------------------------------------------------
+// Depth limits
+// ---------------------------------------------------------------------------
+
+// {"id":"w","a":"x","in":{"b":"y"}}
+message MaxDepthMessage {
+  option (plainjson.message) = {generate: true, max_depth: 1};
+  string id = 1;
+  Outer out = 2;
+}
+
+message Level3 { string d = 1; }
+message Level2 { string c = 1; Level3 l3 = 2; }
+message Level1 { string b = 1; Level2 l2 = 2; }
+
+// Depth bounded from the outside, without touching Level1's own options.
+// {"a":"1","b":"2","l2":{"c":"3","l3":{"d":"4"}}}
+message MaxDepthField {
+  option (plainjson.message).generate = true;
+  string a = 1;
+  Level1 l1 = 2 [(plainjson.field).max_depth = 1];
+}
+
+// ---------------------------------------------------------------------------
+// Self-recursion: legal only because max_depth bounds it.
+// ---------------------------------------------------------------------------
+
+// A self-recursive type that never flattens: the only shape that terminates
+// without a depth bound.
+message Node {
+  option (plainjson.message).flatten = FLATTEN_MODE_NONE;
+  string name = 1;
+  Node child = 2;
+}
+
+// {"root":{"name":"a","child":{"name":"b","child":{"name":"c"}}}}
+message RecursiveNone {
+  option (plainjson.message) = {generate: true, flatten: FLATTEN_MODE_NONE};
+  Node root = 1;
+}
+
+// A self-recursive type that does flatten. On its own it would cycle; a bound
+// at the use site makes it legal.
+message DeepNode {
+  string name = 1;
+  DeepNode child = 2;
+}
+
+// Two levels hoisted, the rest left nested. The later "name" loses to the
+// earlier one under the default IGNORE/FIRST policy.
+// {"name":"a","child":{"name":"c"}}
+message RecursiveBounded {
+  option (plainjson.message).generate = true;
+  DeepNode root = 1 [(plainjson.field).max_depth = 2];
+}
+
+// ---------------------------------------------------------------------------
+// Leaves are never descended into: repeated/map keep their shape by default,
+// so flattening stops at them.
+// ---------------------------------------------------------------------------
+
+// {"id":"w","items":[{"a":"x","b":"y"}],"tags":{"k":"v"}}
+message StopsAtCollections {
+  option (plainjson.message).generate = true;
+  string id = 1;
+  repeated Outer items = 2;
+  map<string, string> tags = 3;
+}

@@ -1,0 +1,165 @@
+syntax = "proto3";
+
+package spec.merging;
+
+option go_package = "github.com/gopherex/protoc-gen-go-plainjson/example/spec/merging";
+
+import "plainjson/plainjson.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+message Ucred { int64 uid = 1; }
+message Runtime { int32 host_pid = 1; }
+message Container { Runtime runtime = 1; string image = 2; }
+message Linux {
+  int32 pid = 1;
+  Ucred ucred = 2;
+  google.protobuf.Timestamp start_time = 3;
+}
+message Windows {
+  int32 process_id = 1;
+  string sid = 2;
+  google.protobuf.Timestamp create_time = 3;
+}
+
+// Sources in priority order; the first non-empty wins. Merged paths leave the
+// normal plan, so no windowsProcessId / linuxPid keys appear.
+// {"image":"nginx","pid":4242,"user":"1000","startedAt":1787000000123}
+message Merge {
+  option (plainjson.message) = {
+    generate: true,
+    merge: [
+      {key: "pid", from: ["container.runtime.host_pid", "linux.pid", "windows.process_id"]},
+      {key: "user", from: ["linux.ucred.uid", "windows.sid"]},
+      {key: "started_at", from: ["linux.start_time", "windows.create_time"],
+       time_format: TIME_FORMAT_UNIX_MILLI}
+    ]
+  };
+  Container container = 1;
+  oneof os {
+    Linux linux = 2;
+    Windows windows = 3;
+  }
+}
+
+// Priority: container.runtime.host_pid outranks linux.pid when both are set.
+// {"pid":999}
+message MergePriority {
+  option (plainjson.message) = {
+    generate: true,
+    merge: [{key: "pid", from: ["container.runtime.host_pid", "linux.pid"]}]
+  };
+  Container container = 1 [(plainjson.field).omit = false];
+  Linux linux = 2;
+}
+
+// LAST_NON_EMPTY takes the last source that has a value.
+// {"pid":4242}
+message MergeLastWins {
+  option (plainjson.message) = {
+    generate: true,
+    merge: [{
+      key: "pid",
+      from: ["container.runtime.host_pid", "linux.pid"],
+      on_conflict: MERGE_CONFLICT_LAST_NON_EMPTY
+    }]
+  };
+  Container container = 1;
+  Linux linux = 2;
+}
+
+// ERROR fails at encode time when two sources are non-empty at once.
+message MergeErrorOnConflict {
+  option (plainjson.message) = {
+    generate: true,
+    merge: [{
+      key: "pid",
+      from: ["container.runtime.host_pid", "linux.pid"],
+      on_conflict: MERGE_CONFLICT_ERROR
+    }]
+  };
+  Container container = 1;
+  Linux linux = 2;
+}
+
+// Every source empty: the key is omitted, unless emit_empty says otherwise.
+// {} / {"pid":null}
+message MergeAllEmpty {
+  option (plainjson.message) = {
+    generate: true,
+    merge: [{key: "pid", from: ["container.runtime.host_pid", "linux.pid"]}]
+  };
+  Container container = 1;
+  Linux linux = 2;
+}
+message MergeAllEmptyEmitted {
+  option (plainjson.message) = {
+    generate: true,
+    merge: [{key: "pid", from: ["container.runtime.host_pid", "linux.pid"], emit_empty: true}]
+  };
+  Container container = 1;
+  Linux linux = 2;
+}
+
+// Sources inside mutually exclusive oneof branches; the rule just picks
+// whichever is live. raw_key keeps the key verbatim.
+// {"PID":77}
+message MergeRawKey {
+  option (plainjson.message) = {
+    generate: true,
+    merge: [{key: "PID", from: ["linux.pid", "windows.process_id"], raw_key: true}]
+  };
+  oneof os {
+    Linux linux = 1;
+    Windows windows = 2;
+  }
+}
+
+// Merge rules carry their own value formatting, independent of the fields the
+// sources come from.
+message Blob { bytes data = 1; }
+message Counted { repeated string parts = 1; }
+
+enum Kind {
+  KIND_UNSPECIFIED = 0;
+  KIND_ONE = 1;
+}
+
+message Typed { Kind kind = 1; }
+message Timed { google.protobuf.Duration took = 1; }
+
+// {"payload":"010203","joined":"a+b","kind":1,"n":-3,"took":1500}
+message MergeFormats {
+  option (plainjson.message) = {
+    generate: true,
+    key_case: KEY_CASE_ORIGINAL,
+    merge: [
+      {key: "payload", from: ["blob.data"], bytes_format: BYTES_FORMAT_HEX},
+      {key: "joined", from: ["counted.parts"],
+       cardinality: CARDINALITY_JOIN, join_separator: "+"},
+      {key: "kind", from: ["typed.kind"], enum_format: ENUM_FORMAT_NUMBER},
+      {key: "n", from: ["linux.pid"], int64_format: INT64_FORMAT_NUMBER},
+      {key: "took", from: ["timed.took"], duration_format: DURATION_FORMAT_MILLIS}
+    ]
+  };
+  Blob blob = 1;
+  Counted counted = 2;
+  Typed typed = 3;
+  Linux linux = 4;
+  Timed timed = 5;
+}
+
+// Stating FIRST_NON_EMPTY explicitly must behave exactly like the default.
+// {"pid":4242}
+message MergeExplicitDefaultConflict {
+  option (plainjson.message) = {
+    generate: true,
+    merge: [{
+      key: "pid",
+      from: ["container.runtime.host_pid", "linux.pid"],
+      on_conflict: MERGE_CONFLICT_FIRST_NON_EMPTY
+    }]
+  };
+  Container container = 1;
+  Linux linux = 2;
+}

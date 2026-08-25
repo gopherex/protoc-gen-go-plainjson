@@ -1,0 +1,122 @@
+[
+  {
+    "name": "collision/ignore-first",
+    "spec": "Key collisions: IGNORE with COLLISION_WINS_FIRST",
+    "message": "spec.collisions.IgnoreFirst",
+    "input": {
+      "linux": {"pid": 4242, "cgroup": {"path": "/sys/fs/x"}},
+      "exe": {"path": "/usr/bin/curl", "sha256": "9f86"}
+    },
+    "want": "{\"pid\":4242,\"path\":\"/sys/fs/x\",\"sha256\":\"9f86\"}",
+    "flat": true
+  },
+  {
+    // LAST replaces the value in place: key order still follows the first write.
+    "name": "collision/ignore-last",
+    "spec": "Key collisions: COLLISION_WINS_LAST",
+    "message": "spec.collisions.IgnoreLast",
+    "input": {
+      "linux": {"pid": 4242, "cgroup": {"path": "/sys/fs/x"}},
+      "exe": {"path": "/usr/bin/curl", "sha256": "9f86"}
+    },
+    "want": "{\"pid\":4242,\"path\":\"/usr/bin/curl\",\"sha256\":\"9f86\"}"
+  },
+  {
+    "name": "collision/first-skips-empty",
+    "spec": "Key collisions: FIRST means first non-empty source",
+    "message": "spec.collisions.FirstSkipsEmpty",
+    "input": {"linux": {"pid": 4242}, "exe": {"path": "/usr/bin/curl", "sha256": "9f86"}},
+    "want": "{\"pid\":4242,\"path\":\"/usr/bin/curl\",\"sha256\":\"9f86\"}"
+  },
+  {
+    "name": "collision/resolved-by-prefix",
+    "spec": "Key collisions: disambiguated by prefix, clean under ERROR_GENERATE",
+    "message": "spec.collisions.ResolvedByPrefix",
+    "input": {
+      "linux": {"pid": 4242, "cgroup": {"path": "/sys/fs/x"}},
+      "exe": {"path": "/usr/bin/curl", "sha256": "9f86"}
+    },
+    "want": "{\"pid\":4242,\"cgroup_path\":\"/sys/fs/x\",\"path\":\"/usr/bin/curl\",\"sha256\":\"9f86\"}",
+    "flat": true
+  },
+  {
+    "name": "collision/resolved-by-path",
+    "spec": "Key collisions: KEY_FROM_PATH is collision-free by construction",
+    "message": "spec.collisions.ResolvedByPath",
+    "input": {
+      "linux": {"pid": 4242, "cgroup": {"path": "/sys/fs/x"}},
+      "exe": {"path": "/usr/bin/curl", "sha256": "9f86"}
+    },
+    "want": "{\"linuxPid\":4242,\"linuxCgroupPath\":\"/sys/fs/x\",\"exePath\":\"/usr/bin/curl\",\"exeSha256\":\"9f86\"}"
+  },
+  {
+    "name": "collision/runtime-detected",
+    "spec": "Key collisions: ERROR_RUNTIME fires when both sources write",
+    "message": "spec.collisions.RuntimeDetected",
+    "input": {
+      "linux": {"pid": 4242, "cgroup": {"path": "/sys/fs/x"}},
+      "exe": {"path": "/usr/bin/curl", "sha256": "9f86"}
+    },
+    "want_error": "key_collision",
+    "error_key": "path"
+  },
+  {
+    "name": "collision/runtime-quiet-when-one-source",
+    "spec": "Key collisions: ERROR_RUNTIME is quiet when only one source writes",
+    "message": "spec.collisions.RuntimeDetected",
+    "input": {"linux": {"pid": 4242}, "exe": {"path": "/usr/bin/curl", "sha256": "9f86"}},
+    "want": "{\"pid\":4242,\"path\":\"/usr/bin/curl\",\"sha256\":\"9f86\"}"
+  },
+  {
+    "name": "collision/exclusive-group",
+    "spec": "Key collisions / Not a collision: declared exclusive groups",
+    "message": "spec.collisions.ExclusiveGroupOK",
+    "input": {"docker": {"id": "c0ffee"}},
+    "want": "{\"id\":\"c0ffee\"}",
+    "flat": true
+  },
+  {
+    "name": "collision/exclusive-group-other-member",
+    "spec": "Key collisions: another member of the same exclusive group",
+    "message": "spec.collisions.ExclusiveGroupOK",
+    "input": {"containerd": {"id": "beef"}},
+    "want": "{\"id\":\"beef\"}"
+  },
+  {
+    "name": "collision/exclusive-group-violated",
+    "spec": "Scope and limitations: a broken exclusivity promise under ERROR_RUNTIME",
+    "message": "spec.collisions.ExclusiveGroupViolated",
+    "input": {"docker": {"id": "a"}, "podman": {"id": "b"}},
+    "want_error": "key_collision",
+    "error_key": "id"
+  },
+  {
+    "name": "collision/exclusive-group-honoured",
+    "spec": "Key collisions: the same message with the promise kept",
+    "message": "spec.collisions.ExclusiveGroupViolated",
+    "input": {"podman": {"id": "b"}},
+    "want": "{\"id\":\"b\"}"
+  },
+  {
+    "name": "collision/exclusive-group-dot-paths",
+    "spec": "Key collisions: exclusive_groups over dot paths",
+    "message": "spec.collisions.ExclusiveGroupDotPaths",
+    "input": {"left": {"docker": {"id": "L"}}},
+    "want": "{\"id\":\"L\"}"
+  },
+  {
+    "name": "collision/explode-runtime",
+    "spec": "Cardinality: EXPLODE over several elements is a dynamic collision",
+    "message": "spec.collisions.ExplodeCollision",
+    "input": {"elems": [{"k": "a"}, {"k": "b"}]},
+    "want_error": "key_collision",
+    "error_key": "k"
+  },
+  {
+    "name": "collision/explode-single-element",
+    "spec": "Cardinality: EXPLODE of one element is unambiguous",
+    "message": "spec.collisions.ExplodeCollision",
+    "input": {"elems": [{"k": "a"}]},
+    "want": "{\"k\":\"a\"}"
+  }
+]

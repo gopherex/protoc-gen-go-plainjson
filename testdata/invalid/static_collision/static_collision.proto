@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package invalid.static_collision;
+
+option go_package = "example.com/invalid/static_collision";
+
+import "plainjson/plainjson.proto";
+
+// Two live subtrees claim "path" under ERROR_GENERATE.
+message Root {
+  option (plainjson.message) = {
+    generate: true,
+    collision_policy: COLLISION_POLICY_ERROR_GENERATE
+  };
+  Cgroup cgroup = 1;
+  Exe exe = 2;
+}
+message Cgroup { string path = 1; }
+message Exe { string path = 1; }

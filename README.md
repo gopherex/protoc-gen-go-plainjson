@@ -1,5 +1,11 @@
 # protoc-gen-go-plainjson
 
+[![CI](https://github.com/gopherex/protoc-gen-go-plainjson/actions/workflows/ci.yml/badge.svg)](https://github.com/gopherex/protoc-gen-go-plainjson/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/gopherex/protoc-gen-go-plainjson.svg)](https://pkg.go.dev/github.com/gopherex/protoc-gen-go-plainjson)
+[![Go Report Card](https://goreportcard.com/badge/github.com/gopherex/protoc-gen-go-plainjson)](https://goreportcard.com/report/github.com/gopherex/protoc-gen-go-plainjson)
+[![Go](https://img.shields.io/badge/go-1.25%2B-00ADD8?logo=go&logoColor=white)](go.mod)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A `protoc` plugin that generates **one-way, reflection-free JSON marshalers** for
 protobuf messages, driven by options declared in your `.proto`.
 
@@ -32,10 +38,50 @@ Process{Os: &Process_Windows{&Windows{Pid: 77, Sid: "S-1-5-18"}}}
 
 Both branches contribute the key `pid`. That is not a conflict — it is the goal.
 
+## Why
+
+Protobuf models a domain: deep, branchy, precise. A lot of what consumes that
+data wants the opposite — one row, one flat object, one set of columns:
+
+- **log and event pipelines** where every nested field has to become a top-level
+  key before it is searchable;
+- **columnar stores and warehouses** (ClickHouse, BigQuery, Parquet) that take a
+  flat record per row;
+- **SIEM and analytics schemas** — ECS, OTel attributes — that prescribe flat key
+  names your proto does not match;
+- **webhooks and public payloads** where you want to expose a curated, stable set
+  of fields rather than your internal message shape.
+
+Doing that by hand means writing a mapper per message and keeping it in step with
+the schema, or paying for a reflective walk on every event. This plugin makes the
+mapping part of the `.proto` — the flattening rules live next to the fields they
+describe, and the traversal is resolved once, at generation time, into
+straight-line Go.
+
+```proto
+Linux   linux   = 1;                                        // linux.pid    -> "pid"
+Windows windows = 2;                                        // windows.pid  -> "pid"
+Debug   debug   = 3 [(plainjson.field).omit = true];        // dropped
+Money   total   = 4 [(plainjson.field).pick = "amount"];    // {amount,cur} -> 1000
+```
+
+The result is [~4× faster than the same flattening written by hand over
+descriptors, and ~20× faster than the protojson-then-collapse-a-map
+approach](#performance), with 9 allocations instead of 229.
+
+## What it is not
+
+- **Not a protojson replacement.** For a faithful, reversible protobuf ↔ JSON
+  mapping, use `protojson`. This plugin throws information away on purpose.
+- **Not a transport codec.** Nothing can read the output back into a message.
+- **Not a query language.** Rules are declarative and static: paths, keys,
+  cardinality, precedence. There are no expressions or conditionals.
+
 ---
 
 ## Table of contents
 
+- [Why](#why)
 - [Install](#install)
 - [Usage](#usage)
 - [Generated API](#generated-api)
@@ -279,7 +325,7 @@ option (plainjson.file) = {
 | `key_case` | `KeyCase` | `CAMEL` | default key casing |
 | `collision_policy` | `CollisionPolicy` | `IGNORE` | default collision policy |
 | `collision_wins` | `CollisionWins` | `FIRST` | default winner under `IGNORE` |
-| `max_depth` | uint32 | 0 (unlimited) | default flatten depth limit |
+| `max_depth` | optional uint32 | 0 (unlimited) | default flatten depth limit |
 | `emit_empty` | optional bool | false | default for emitting zero/empty values |
 | `cardinality` | `Cardinality` | `KEEP` | default collection handling |
 | `join_separator` | string | `","` | default separator for `CARDINALITY_JOIN` |
@@ -313,8 +359,8 @@ overrides the file value. In addition:
 
 | option | type | default | meaning |
 |---|---|---|---|
-| `generate` | bool | inherited from `generate_all` | emit marshalers for this message |
-| `override_marshal_json` | bool | inherited | also emit `MarshalJSON()` |
+| `generate` | optional bool | inherited from `generate_all` | emit marshalers for this message; an explicit `false` opts out of `generate_all` |
+| `override_marshal_json` | optional bool | inherited | also emit `MarshalJSON()` |
 | `merge` | repeated `MergeRule` | — | coalesce several source paths into one key, see [Merge rules](#merge-rules) |
 | `constants` | repeated `Constant` | — | inject fixed key/value pairs, see [Constants](#constants) |
 | `exclusive_groups` | repeated `ExclusiveGroup` | — | declare non-`oneof` fields mutually exclusive, see [Key collisions](#key-collisions) |
@@ -367,7 +413,7 @@ Linux linux = 1 [(plainjson.field) = {
 | `pick` | string | — | dot path inside this field; the field is replaced by that single value |
 | `lift` | repeated `Lift` | — | hoist selected dot paths out of the subtree under given keys |
 | `tag` | string | branch field name | discriminator value when this field is a `oneof` branch |
-| `max_depth` | uint32 | inherited | depth limit for this subtree; propagates, unlike `flatten` |
+| `max_depth` | optional uint32 | inherited | depth limit for this subtree; propagates, unlike `flatten`. An explicit `0` lifts an inherited bound |
 
 ### Cardinality
 
@@ -410,7 +456,8 @@ enum Severity {
 | `(plainjson.enum_value).name` | enum value | override the emitted name for one value |
 | `(plainjson.enum_value).omit` | enum value | emit nothing when the field holds this value |
 
-A field-level `enum_format` overrides the enum-level `format`.
+Precedence for an enum field is field option, then the enum type's own
+`format`, then whatever the message or file set.
 
 ---
 
@@ -432,7 +479,11 @@ Input: `Wrap{Id: "w", Out: &Outer{A: "x", In: &Inner{B: "y"}}}`
 |---|---|
 | `FLATTEN_MODE_DEEP` (default) | `{"id":"w","a":"x","b":"y"}` |
 | `FLATTEN_MODE_SHALLOW` | `{"id":"w","a":"x","in":{"b":"y"}}` |
-| `FLATTEN_MODE_NONE` | `{"id":"w","out":{"a":"x","in":{"b":"y"}}}` — protojson shape |
+| `FLATTEN_MODE_NONE` | `{"id":"w","out":{"a":"x","b":"y"}}` — `out` keeps its key, its interior still follows `Outer` |
+
+`NONE` on a message is a boundary decision about *its own* fields; the protojson
+shape needs the nested types to say `NONE` too, which is what a file-level
+`flatten: FLATTEN_MODE_NONE` does in one line.
 
 Mixing per field:
 
@@ -445,14 +496,27 @@ message Wrap {
 // {"id":"w","a":"x","b":"y"}
 ```
 
-The reverse — keep one subtree nested inside a deep-flattened message:
+The reverse — keep one subtree behind its own key inside a deep-flattened
+message. What that key holds depends on the field type's own mode, not on the
+boundary:
 
 ```proto
 message Wrap {
   option (plainjson.message).flatten = FLATTEN_MODE_DEEP;
   Outer out = 2 [(plainjson.field).flatten = FLATTEN_MODE_NONE];
 }
-message Outer { string a = 1; Inner in = 2; }
+message Outer { string a = 1; Inner in = 2; }          // no option: DEEP applies
+// {"id":"w","out":{"a":"x","b":"y"}}
+```
+
+For a fully protojson-shaped subtree, say so on the type:
+
+```proto
+message Outer {
+  option (plainjson.message).flatten = FLATTEN_MODE_NONE;
+  string a = 1;
+  Inner in = 2;
+}
 // {"id":"w","out":{"a":"x","in":{"b":"y"}}}
 ```
 
@@ -508,8 +572,11 @@ option (plainjson.message) = {generate: true, max_depth: 1};
 // {"id":"w","a":"x","in":{"b":"y"}}
 ```
 
-`max_depth` is also the escape hatch for self-recursive messages — see
-[Generation-time validation](#generation-time-validation).
+`max_depth` is also the escape hatch for self-recursive messages: a type that
+flattens into itself would cycle, and a bound at the use site — or
+`FLATTEN_MODE_NONE` on the type — makes it legal. The cycle check runs over the
+plan of each generated message, so the bound only has to exist on the paths
+actually reached. See [Generation-time validation](#generation-time-validation).
 
 ---
 
@@ -813,6 +880,9 @@ Semantics:
 
 - Paths listed in `from` are **removed from the normal flatten plan** — they only
   reach the output through the rule.
+- Merged keys are written **after** the flatten plan, in rule declaration order.
+  The full emission order of an object is: constants, then the flatten plan in
+  traversal order, then merged keys.
 - `FIRST_NON_EMPTY` scans `from` in order and takes the first source that has a
   value under the [presence rules](#empty-values-and-presence).
 - `ERROR` returns a runtime `*plainjsonpb.MergeConflictError` if two sources are
@@ -1134,14 +1204,51 @@ keys with `"os":"windows"` and `"sid"` instead of `"cgroup_path"`.
 ## Performance
 
 Generated code writes straight into a `jx.Encoder`: no reflection, no descriptor
-walk, no intermediate map. The flatten plan — key strings, order, presence checks —
-is resolved at generation time and compiled into straight-line Go.
+walk, no intermediate map. The flatten plan — key strings, order, presence
+checks — is resolved at generation time and compiled into straight-line Go.
 
-Buffering is only introduced where semantics demand it: `COLLISION_WINS_LAST`, and
-`MERGE_CONFLICT_ERROR` rules whose sources are interleaved in traversal order.
-Everything else is a single streaming pass.
+Numbers from `make bench` on an i5-14600K, Go 1.27. Run it yourself; the
+benchmarks live in `example/bench/`.
 
----
+**Flattening the same message three ways.** All three produce the same record,
+and `TestBaselinesAgree` fails the suite if they ever stop agreeing. The
+baselines are what you would write instead of this plugin: `hand-reflect` walks
+descriptors and writes into `jx`, `hand-json` lets protojson build the nested
+document and collapses it as a map.
+
+| implementation | ns/op | B/op | allocs/op | vs generated |
+|---|--:|--:|--:|--:|
+| generated | 776 | 1 048 | 9 | — |
+| hand-reflect | 3 099 | 3 112 | 20 | **4.0×** slower |
+| hand-json | 16 060 | 9 830 | 229 | **20.7×** slower |
+
+**Against protojson.** protojson emits the nested document rather than the flat
+one, so this is a floor for "serialise this message at all", not a like-for-like
+comparison. `Event` exercises the full option set — a tagged oneof, a merge
+rule, inlined map keys, a joined repeated field; `Scalars` is flat, so it
+isolates the cost of writing values.
+
+| message | codec | ns/op | B/op | allocs/op | speedup |
+|---|---|--:|--:|--:|--:|
+| Event | plainjson | 1 585 | 2 424 | 20 | **3.4×** |
+| Event | protojson | 5 450 | 5 159 | 102 | — |
+| Scalars | plainjson | 687 | 600 | 14 | **2.3×** |
+| Scalars | protojson | 1 612 | 961 | 22 | — |
+
+**What each collision policy costs**, on one message whose two subtrees both
+claim `path`:
+
+| policy | ns/op | B/op | allocs/op | what it needs |
+|---|--:|--:|--:|---|
+| `IGNORE` + `FIRST` (default) | 268 | 368 | 6 | a local bool per contested key |
+| `ERROR_RUNTIME` | 498 | 1 560 | 9 | a key tracker |
+| `IGNORE` + `LAST` | 928 | 2 480 | 24 | the object buffered before flush |
+
+The default policy is free: the flag is a register, and a message with no
+contested key gets no machinery at all. `LAST` is the one to avoid in a hot
+path — it has to hold the whole object to let a later write replace an earlier
+one. `ERROR_RUNTIME` is measured on data that does *not* collide, since a real
+collision returns an error rather than bytes; what it prices is the tracker.
 
 ## Scope and limitations
 
@@ -1151,7 +1258,11 @@ Everything else is a single streaming pass.
 - Cross-package message fields are supported when generated code exists for them;
   flattening across a package boundary requires the referenced package to be
   generated by this plugin too.
-- `Any` is not expanded — no dynamic type registry is consulted.
+- `Any`, `Struct`, `Value` and `ListValue` are rendered through `protojson`,
+  the one place the runtime is not reflection-free: their JSON is defined by
+  their content rather than by fields.
+- Lifting out of a well-known type is not supported; `pick` into a `Struct`
+  is, and resolves the path at run time.
 - `exclusive_groups` is a promise you make to the generator; violating it falls
   back to `collision_wins` (or to a runtime error under `ERROR_RUNTIME`).
 

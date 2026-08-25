@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package invalid.duplicate_merge_key;
+
+option go_package = "example.com/invalid/duplicate_merge_key";
+
+import "plainjson/plainjson.proto";
+
+// Two rules claim the same output key.
+message Root {
+  option (plainjson.message) = {
+    generate: true,
+    merge: [
+      {key: "pid", from: ["a.n"]},
+      {key: "pid", from: ["b.n"]}
+    ]
+  };
+  Inner a = 1;
+  Inner b = 2;
+}
+message Inner { int32 n = 1; }

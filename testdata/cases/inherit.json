@@ -1,0 +1,158 @@
+[
+  {
+    "name": "inherit/file-formats",
+    "spec": "File options: every value format defaulted at file level",
+    "message": "spec.inherit.formats.InheritsFileFormats",
+    "input": {"n": "-3", "by": "AQID", "lvl": "LEVEL_ONE", "ts": "2026-08-25T12:00:00Z",
+              "dur": "1.5s", "argv": ["a", "b"]},
+    "want": "{\"n\":-3,\"by\":\"010203\",\"lvl\":1,\"ts\":1787659200,\"dur\":1500,\"argv\":\"a|b\"}",
+    "flat": true
+  },
+  {
+    "name": "inherit/message-overrides-file",
+    "spec": "Option inheritance: message beats file, field beats message",
+    "message": "spec.inherit.formats.MessageOverridesFile",
+    "input": {"n": "-3", "other": "-3", "by": "AQID"},
+    "want": "{\"n\":\"-3\",\"other\":-3,\"by\":\"AQID\"}"
+  },
+  {
+    "name": "inherit/index-separators",
+    "spec": "Cardinality: index_separator inherited from the file, overridden per field",
+    "message": "spec.inherit.formats.IndexSeparators",
+    "input": {"a": ["x", "y"], "b": ["p"]},
+    "want": "{\"a@0\":\"x\",\"a@1\":\"y\",\"b~0\":\"p\"}",
+    "flat": true
+  },
+  {
+    "name": "inherit/join-separators",
+    "spec": "Cardinality: join_separator inherited from the file, overridden per field",
+    "message": "spec.inherit.formats.JoinSeparators",
+    "input": {"a": ["x", "y"], "b": ["p", "q"]},
+    "want": "{\"a\":\"x|y\",\"b\":\"p+q\"}"
+  },
+  {
+    "name": "inherit/message-opts-out-of-emit-empty",
+    "spec": "Option inheritance: a message opts out of the file's emit_empty",
+    "message": "spec.inherit.formats.MessageOptsOutOfEmitEmpty",
+    "want": "{}"
+  },
+  {
+    "name": "inherit/file-shallow",
+    "spec": "File options: flatten, key_from and key_case set at file level",
+    "message": "spec.inherit.layout.InheritsShallow",
+    "input": {"a": "1", "l1": {"b": "2", "l2": {"c": "3", "l3": {"d": "4"}}}},
+    "want": "{\"a\":\"1\",\"l1_b\":\"2\",\"l1_l2\":{\"c\":\"3\",\"l3_d\":\"4\"}}"
+  },
+  {
+    "name": "inherit/deep-bounded-by-file-depth",
+    "spec": "File options: max_depth bounds a message that asks for DEEP",
+    "message": "spec.inherit.layout.DeepBoundedByFileDepth",
+    "input": {"a": "1", "l1": {"b": "2", "l2": {"c": "3", "l3": {"d": "4"}}}},
+    "want": "{\"a\":\"1\",\"l1_b\":\"2\",\"l1_l2_c\":\"3\",\"l1_l2_l3\":{\"d\":\"4\"}}"
+  },
+  {
+    "name": "inherit/keeps-file-depth-bound",
+    "spec": "File options: max_depth bounds a message whose types all flatten",
+    "message": "spec.inherit.layout.KeepsFileDepthBound",
+    "input": {"a": "1", "l1": {"b": "2", "l2": {"c": "3", "l3": {"d": "4"}}}},
+    "want": "{\"a\":\"1\",\"l1_b\":\"2\",\"l1_l2_c\":\"3\",\"l1_l2_l3\":{\"d\":\"4\"}}"
+  },
+  {
+    "name": "inherit/overrides-depth-and-keys",
+    "spec": "Option inheritance: a message overrides depth and key derivation",
+    "message": "spec.inherit.layout.OverridesDepthAndKeys",
+    "input": {"a": "1", "l1": {"b": "2", "l2": {"c": "3", "l3": {"d": "4"}}}},
+    "want": "{\"a\":\"1\",\"b\":\"2\",\"c\":\"3\",\"d\":\"4\"}",
+    "flat": true
+  },
+  {
+    "name": "inherit/marshal-json-from-file",
+    "spec": "File options: override_marshal_json inherited from the file",
+    "message": "spec.inherit.layout.InheritsMarshalJSON",
+    "input": {"a": "1"},
+    "want": "{\"a\":\"1\"}",
+    "json_marshaler": true
+  },
+  {
+    "name": "inherit/nested-type-as-root-1",
+    "spec": "Core model: every generated message is its own root for key derivation",
+    "message": "spec.inherit.layout.Leaf1",
+    "input": {"b": "2", "l2": {"c": "3", "l3": {"d": "4"}}},
+    "want": "{\"b\":\"2\",\"l2_c\":\"3\",\"l2_l3\":{\"d\":\"4\"}}",
+    "json_marshaler": true
+  },
+  {
+    "name": "inherit/nested-type-as-root-2",
+    "spec": "Core model: the same type one level down",
+    "message": "spec.inherit.layout.Leaf2",
+    "input": {"c": "3", "l3": {"d": "4"}},
+    "want": "{\"c\":\"3\",\"l3_d\":\"4\"}"
+  },
+  {
+    "name": "inherit/nested-type-as-root-3",
+    "spec": "Core model: a leaf-only message",
+    "message": "spec.inherit.layout.Leaf3",
+    "input": {"d": "4"},
+    "want": "{\"d\":\"4\"}"
+  },
+  {
+    "name": "inherit/deep-leaf-1-as-root",
+    "spec": "Core model: a type that flattens, reached as its own root",
+    "message": "spec.inherit.layout.DeepLeaf1",
+    "input": {"b": "2", "l2": {"c": "3", "l3": {"d": "4"}}},
+    "want": "{\"b\":\"2\",\"l2_c\":\"3\",\"l2_l3_d\":\"4\"}",
+    "flat": true
+  },
+  {
+    "name": "inherit/deep-leaf-2-as-root",
+    "spec": "Core model: the same type one level down",
+    "message": "spec.inherit.layout.DeepLeaf2",
+    "input": {"c": "3", "l3": {"d": "4"}},
+    "want": "{\"c\":\"3\",\"l3_d\":\"4\"}",
+    "flat": true
+  },
+  {
+    "name": "inherit/deep-leaf-3-as-root",
+    "spec": "Core model: a leaf-only message",
+    "message": "spec.inherit.layout.DeepLeaf3",
+    "input": {"d": "4"},
+    "want": "{\"d\":\"4\"}",
+    "flat": true
+  },
+  {
+    "name": "inherit/collision-explicit-defaults",
+    "spec": "Key collisions: stating IGNORE and FIRST changes nothing",
+    "message": "spec.inherit.collide.ExplicitDefaults",
+    "input": {"left": {"path": "/left"}, "right": {"path": "/right"}},
+    "want": "{\"path\":\"/left\"}"
+  },
+  {
+    "name": "inherit/collision-message-switches-winner",
+    "spec": "Key collisions: a message switches the winner",
+    "message": "spec.inherit.collide.MessageSwitchesWinner",
+    "input": {"left": {"path": "/left"}, "right": {"path": "/right"}},
+    "want": "{\"path\":\"/right\"}"
+  },
+  {
+    "name": "inherit/collision-message-escalates-policy",
+    "spec": "Key collisions: a message escalates the file policy to a runtime error",
+    "message": "spec.inherit.collide.MessageEscalatesPolicy",
+    "input": {"left": {"path": "/left"}, "right": {"path": "/right"}},
+    "want_error": "key_collision",
+    "error_key": "path"
+  },
+  {
+    "name": "inherit/collide-left-as-root",
+    "spec": "File options: generate_all covers the helper types too",
+    "message": "spec.inherit.collide.Left",
+    "input": {"path": "/left"},
+    "want": "{\"path\":\"/left\"}"
+  },
+  {
+    "name": "inherit/collide-right-as-root",
+    "spec": "File options: the other helper type",
+    "message": "spec.inherit.collide.Right",
+    "input": {"path": "/right"},
+    "want": "{\"path\":\"/right\"}"
+  }
+]

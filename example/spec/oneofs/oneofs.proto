@@ -1,0 +1,193 @@
+syntax = "proto3";
+
+package spec.oneofs;
+
+option go_package = "github.com/gopherex/protoc-gen-go-plainjson/example/spec/oneofs";
+
+import "plainjson/plainjson.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+message Click { int32 x = 1; int32 y = 2; }
+message Scroll { int32 dy = 1; }
+
+// Default under flattening: ONEOF_MODE_INLINE.
+// {"id":"e1","x":10,"y":20}
+message InlineMode {
+  option (plainjson.message).generate = true;
+  string id = 1;
+  oneof payload {
+    Click click = 10;
+    Scroll scroll = 11;
+  }
+}
+
+// {"id":"e1","click":{"x":10,"y":20}}
+message BranchKeyMode {
+  option (plainjson.message).generate = true;
+  string id = 1;
+  oneof payload {
+    option (plainjson.oneof).mode = ONEOF_MODE_BRANCH_KEY;
+    Click click = 10;
+    Scroll scroll = 11;
+  }
+}
+
+// {"id":"e1","type":"click","x":10,"y":20}
+// scroll branch: {"id":"e1","type":"SCROLL_EV","dy":5}
+message TaggedMode {
+  option (plainjson.message).generate = true;
+  string id = 1;
+  oneof payload {
+    option (plainjson.oneof) = {mode: ONEOF_MODE_TAGGED, discriminator: "type"};
+    Click click = 10;
+    Scroll scroll = 11 [(plainjson.field).tag = "SCROLL_EV"];
+  }
+}
+
+// {"id":"e1","payload":{"x":10,"y":20}}
+message SingleKeyMode {
+  option (plainjson.message).generate = true;
+  string id = 1;
+  oneof payload {
+    option (plainjson.oneof) = {mode: ONEOF_MODE_SINGLE_KEY, value_key: "payload"};
+    Click click = 10;
+    Scroll scroll = 11;
+  }
+}
+
+// {"id":"e1","type":"click"}
+message DiscriminatorOnlyMode {
+  option (plainjson.message).generate = true;
+  string id = 1;
+  oneof payload {
+    option (plainjson.oneof).mode = ONEOF_MODE_DISCRIMINATOR_ONLY;
+    Click click = 10;
+    Scroll scroll = 11;
+  }
+}
+
+// {"id":"e1"}
+message OmitMode {
+  option (plainjson.message).generate = true;
+  string id = 1;
+  oneof payload {
+    option (plainjson.oneof).mode = ONEOF_MODE_OMIT;
+    Click click = 10;
+    Scroll scroll = 11;
+  }
+}
+
+// Unset branch: nothing written. With omit_if_unset:false -> {"id":"e1","type":null}
+message OmitIfUnsetFalse {
+  option (plainjson.message).generate = true;
+  string id = 1;
+  oneof payload {
+    option (plainjson.oneof) = {
+      mode: ONEOF_MODE_TAGGED, discriminator: "type", omit_if_unset: false
+    };
+    Click click = 10;
+    Scroll scroll = 11;
+  }
+}
+
+// Scalar branches keep their own names under INLINE.
+// {"uuid":"7f3a"} or {"seq":"91"}
+message ScalarBranches {
+  option (plainjson.message).generate = true;
+  oneof id {
+    string uuid = 1;
+    int64 seq = 2;
+  }
+}
+
+// Branches renamed onto one key. Legal: they are mutually exclusive.
+// {"id":"7f3a"} or {"id":"91"}
+message ScalarBranchesMerged {
+  option (plainjson.message).generate = true;
+  oneof id {
+    string uuid = 1 [(plainjson.field).name = "id"];
+    int64 seq = 2 [(plainjson.field).name = "id"];
+  }
+}
+
+// The headline case: same leaf name in two branches collapses onto one key,
+// with no collision diagnostics.
+message Linux { int32 pid = 1; string cgroup = 2; }
+message Windows { int32 pid = 1; string sid = 2; }
+
+// {"pid":4242,"cgroup":"/sys/x"} or {"pid":77,"sid":"S-1-5"}
+message ExclusiveLeafCollapse {
+  option (plainjson.message) = {
+    generate: true, collision_policy: COLLISION_POLICY_ERROR_GENERATE
+  };
+  oneof os {
+    Linux linux = 1;
+    Windows windows = 2;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Oneof-level formatting: options set on the oneof apply to every branch,
+// overriding the message and overridden by a branch field.
+// ---------------------------------------------------------------------------
+
+message BranchA {
+  int64 n = 1;
+  bytes by = 2;
+  repeated string argv = 3;
+}
+
+// {"n":-3,"by":"010203","argv":"a/b"}
+message OneofLevelFormats {
+  option (plainjson.message).generate = true;
+  oneof body {
+    option (plainjson.oneof) = {
+      mode: ONEOF_MODE_INLINE,
+      key_from: KEY_FROM_LEAF,
+      key_case: KEY_CASE_ORIGINAL,
+      emit_empty: true,
+      int64_format: INT64_FORMAT_NUMBER,
+      bytes_format: BYTES_FORMAT_HEX,
+      cardinality: CARDINALITY_JOIN,
+      join_separator: "/",
+      index_separator: "@"
+    };
+    BranchA a = 1;
+    BranchA b = 2;
+  }
+}
+
+message BranchTimes {
+  google.protobuf.Timestamp ts = 1;
+  google.protobuf.Duration dur = 2;
+  Level lvl = 3;
+}
+
+enum Level {
+  LEVEL_UNSPECIFIED = 0;
+  LEVEL_ONE = 1;
+}
+
+// {"ts":1787832000,"dur":1500,"lvl":1}
+message OneofLevelTimeFormats {
+  option (plainjson.message) = {generate: true, key_case: KEY_CASE_ORIGINAL};
+  oneof body {
+    option (plainjson.oneof) = {
+      time_format: TIME_FORMAT_UNIX_SECONDS,
+      duration_format: DURATION_FORMAT_MILLIS,
+      enum_format: ENUM_FORMAT_NUMBER
+    };
+    BranchTimes t = 1;
+  }
+}
+
+// A branch field overrides the oneof-level format.
+// {"n":"-3"}
+message BranchOverridesOneof {
+  option (plainjson.message).generate = true;
+  oneof body {
+    option (plainjson.oneof).int64_format = INT64_FORMAT_NUMBER;
+    BranchA a = 1 [(plainjson.field).int64_format = INT64_FORMAT_STRING];
+  }
+}

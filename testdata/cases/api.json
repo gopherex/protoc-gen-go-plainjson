@@ -1,0 +1,64 @@
+[
+  {
+    "name": "api/generate-all",
+    "spec": "File options: generate_all covers every message in the file",
+    "message": "spec.api.CoveredByFileOption",
+    "input": {"userId": "u-1", "inner": {"innerValue": "v"}},
+    "want": "{\"user_id\":\"u-1\",\"inner_value\":\"v\"}",
+    "flat": true
+  },
+  {
+    "name": "api/generate-all-nested-type",
+    "spec": "File options: a helper type is generated for too",
+    "message": "spec.api.Inner",
+    "input": {"innerValue": "v"},
+    "want": "{\"inner_value\":\"v\"}"
+  },
+  {
+    "name": "api/opted-out",
+    "spec": "Message options: generate false opts out of generate_all",
+    "message": "spec.api.OptedOut",
+    "no_marshaler": true
+  },
+  {
+    "name": "api/message-overrides-file-case",
+    "spec": "Option inheritance: a message option overrides the file default",
+    "message": "spec.api.OverridesFileCase",
+    "input": {"userId": "u-1"},
+    "want": "{\"userId\":\"u-1\"}"
+  },
+  {
+    "name": "api/override-marshal-json",
+    "spec": "Generated API: override_marshal_json makes encoding/json agree",
+    "message": "spec.api.OverridesMarshalJSON",
+    "input": {"userId": "u-1", "inner": {"innerValue": "v"}},
+    "want": "{\"user_id\":\"u-1\",\"inner_value\":\"v\"}",
+    "json_marshaler": true
+  },
+  {
+    "name": "api/constants",
+    "spec": "Constants: emitted first, in declaration order",
+    "message": "spec.api.Constants",
+    "input": {"id": "e-1"},
+    "want": "{\"schema\":\"v1\",\"source\":\"agent\",\"flags\":[\"flat\",\"lossy\"],\"id\":\"e-1\"}"
+  },
+  {
+    "name": "api/constant-raw-key",
+    "spec": "Constants: raw_key bypasses key_case",
+    "message": "spec.api.ConstantRawKey",
+    "want": "{\"X-Schema\":\"v1\",\"schema_version\":\"v1\"}"
+  },
+  {
+    "name": "api/empty-message",
+    "spec": "Generated API: an empty message marshals to an empty object",
+    "message": "spec.api.Empty",
+    "want": "{}"
+  },
+  {
+    "name": "api/empty-message-nil",
+    "spec": "Generated API: a nil receiver marshals to null",
+    "message": "spec.api.Empty",
+    "nil_receiver": true,
+    "want": "null"
+  }
+]

@@ -1,0 +1,214 @@
+syntax = "proto3";
+
+package spec.scalars;
+
+option go_package = "github.com/gopherex/protoc-gen-go-plainjson/example/spec/scalars";
+
+import "plainjson/plainjson.proto";
+import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  SEVERITY_LOW = 1;
+  SEVERITY_HIGH = 2;
+}
+
+enum Stripped {
+  option (plainjson.enum).strip_prefix = true;
+  STRIPPED_UNSPECIFIED = 0;
+  STRIPPED_LOW = 1;
+  STRIPPED_HIGH = 2;
+}
+
+enum Numeric {
+  option (plainjson.enum).format = ENUM_FORMAT_NUMBER;
+  NUMERIC_UNSPECIFIED = 0;
+  NUMERIC_ONE = 1;
+}
+
+enum Renamed {
+  RENAMED_UNSPECIFIED = 0;
+  RENAMED_LOW = 1 [(plainjson.enum_value).name = "low"];
+  RENAMED_HIGH = 2 [(plainjson.enum_value).name = "high"];
+  RENAMED_HIDDEN = 3 [(plainjson.enum_value).omit = true];
+}
+
+// protojson baseline, no overrides.
+// {"i32":-1,"u32":2,"i64":"-3","u64":"4","f32":1.5,"f64":-0,"b":true,
+//  "s":"hi","by":"AQID","sev":"SEVERITY_HIGH"}
+message Baseline {
+  option (plainjson.message).generate = true;
+  int32 i32 = 1;
+  uint32 u32 = 2;
+  int64 i64 = 3;
+  uint64 u64 = 4;
+  float f32 = 5;
+  double f64 = 6;
+  bool b = 7;
+  string s = 8;
+  bytes by = 9;
+  Severity sev = 10;
+}
+
+// Special float values keep their protojson spelling.
+// {"nan":"NaN","inf":"Infinity","ninf":"-Infinity","negzero":-0}
+message SpecialFloats {
+  option (plainjson.message) = {generate: true, emit_empty: true};
+  double nan = 1;
+  double inf = 2;
+  double ninf = 3;
+  double negzero = 4;
+}
+
+// {"i64":-3,"u64":4}
+message Int64AsNumber {
+  option (plainjson.message) = {generate: true, int64_format: INT64_FORMAT_NUMBER};
+  int64 i64 = 1;
+  uint64 u64 = 2;
+}
+
+// Per-field override beats the message default.
+// {"asString":"-3","asNumber":-3}
+message Int64Mixed {
+  option (plainjson.message) = {generate: true, int64_format: INT64_FORMAT_NUMBER};
+  int64 as_string = 1 [(plainjson.field).int64_format = INT64_FORMAT_STRING];
+  int64 as_number = 2;
+}
+
+// {"b64":"AQID","b64url":"AQID","hex":"010203","arr":[1,2,3]}
+message BytesFormats {
+  option (plainjson.message).generate = true;
+  bytes b64 = 1;
+  bytes b64url = 2 [(plainjson.field).bytes_format = BYTES_FORMAT_BASE64_URL];
+  bytes hex = 3 [(plainjson.field).bytes_format = BYTES_FORMAT_HEX];
+  bytes arr = 4 [(plainjson.field).bytes_format = BYTES_FORMAT_ARRAY];
+}
+
+// {"name":"SEVERITY_HIGH","number":2,"stripped":"HIGH","enumLevel":1,
+//  "renamed":"high"}
+message EnumFormats {
+  option (plainjson.message).generate = true;
+  Severity name = 1;
+  Severity number = 2 [(plainjson.field).enum_format = ENUM_FORMAT_NUMBER];
+  Stripped stripped = 3;
+  Numeric enum_level = 4;
+  Renamed renamed = 5;
+}
+
+// A field-level format overrides the enum-level one.
+// {"forcedName":"NUMERIC_ONE"}
+message EnumFieldOverridesType {
+  option (plainjson.message).generate = true;
+  Numeric forced_name = 1 [(plainjson.field).enum_format = ENUM_FORMAT_NAME];
+}
+
+// Well-known types are leaves: flatten never descends into them.
+// {"ts":"2026-08-25T12:00:00Z","dur":"1.500s","sv":"x","iv":7,"bv":true,
+//  "st":{"a":1},"val":"v","lst":[1,2],"emp":{},"fm":"aB,c","any":{"@type":"…"}}
+message WellKnown {
+  option (plainjson.message).generate = true;
+  google.protobuf.Timestamp ts = 1;
+  google.protobuf.Duration dur = 2;
+  google.protobuf.StringValue sv = 3;
+  google.protobuf.Int32Value iv = 4;
+  google.protobuf.BoolValue bv = 5;
+  google.protobuf.Struct st = 6;
+  google.protobuf.Value val = 7;
+  google.protobuf.ListValue lst = 8;
+  google.protobuf.Empty emp = 9;
+  google.protobuf.FieldMask fm = 10;
+  google.protobuf.Any any = 11;
+}
+
+// {"rfc":"2026-08-25T12:00:00Z","secs":1787832000,"millis":1787832000000,
+//  "micros":1787832000000000,"nanos":1787832000000000000}
+message TimeFormats {
+  option (plainjson.message).generate = true;
+  google.protobuf.Timestamp rfc = 1;
+  google.protobuf.Timestamp secs = 2 [(plainjson.field).time_format = TIME_FORMAT_UNIX_SECONDS];
+  google.protobuf.Timestamp millis = 3 [(plainjson.field).time_format = TIME_FORMAT_UNIX_MILLI];
+  google.protobuf.Timestamp micros = 4 [(plainjson.field).time_format = TIME_FORMAT_UNIX_MICRO];
+  google.protobuf.Timestamp nanos = 5 [(plainjson.field).time_format = TIME_FORMAT_UNIX_NANO];
+}
+
+// {"pj":"1.500s","secs":1.5,"millis":1500,"nanos":1500000000}
+message DurationFormats {
+  option (plainjson.message).generate = true;
+  google.protobuf.Duration pj = 1;
+  google.protobuf.Duration secs = 2 [(plainjson.field).duration_format = DURATION_FORMAT_SECONDS];
+  google.protobuf.Duration millis = 3 [(plainjson.field).duration_format = DURATION_FORMAT_MILLIS];
+  google.protobuf.Duration nanos = 4 [(plainjson.field).duration_format = DURATION_FORMAT_NANOS];
+}
+
+// Formats propagate down a subtree, unlike flatten.
+message Inner {
+  google.protobuf.Timestamp ts = 1;
+  int64 n = 2;
+}
+// {"ts":1787832000000,"n":5}
+message FormatsPropagate {
+  option (plainjson.message).generate = true;
+  Inner inner = 1 [(plainjson.field) = {
+    time_format: TIME_FORMAT_UNIX_MILLI, int64_format: INT64_FORMAT_NUMBER
+  }];
+}
+
+// Message-level formats, and the explicit spelling of every protojson default:
+// stating a default must not change the output.
+// {"by":"AQID","ts":"2026-08-25T12:00:00Z","dur":"1.500s","sev":"SEVERITY_HIGH",
+//  "argv":["a","b"],"pid":"7"}
+message ExplicitProtojsonDefaults {
+  option (plainjson.message) = {
+    generate: true,
+    key_from: KEY_FROM_LEAF,
+    bytes_format: BYTES_FORMAT_BASE64,
+    time_format: TIME_FORMAT_RFC3339,
+    duration_format: DURATION_FORMAT_PROTOJSON,
+    enum_format: ENUM_FORMAT_NAME,
+    int64_format: INT64_FORMAT_STRING,
+    cardinality: CARDINALITY_KEEP,
+    join_separator: ",",
+    collision_policy: COLLISION_POLICY_IGNORE,
+    collision_wins: COLLISION_WINS_FIRST
+  };
+  bytes by = 1;
+  google.protobuf.Timestamp ts = 2;
+  google.protobuf.Duration dur = 3;
+  Severity sev = 4;
+  repeated string argv = 5;
+  int64 pid = 6;
+}
+
+// Message-level time and duration formats, inherited by every field below.
+// {"a":1787832000000,"b":1787832000000,"took":1500}
+message MessageLevelTimeFormats {
+  option (plainjson.message) = {
+    generate: true,
+    time_format: TIME_FORMAT_UNIX_MILLI,
+    duration_format: DURATION_FORMAT_MILLIS
+  };
+  google.protobuf.Timestamp a = 1;
+  google.protobuf.Timestamp b = 2;
+  google.protobuf.Duration took = 3;
+}
+
+// Message-level enum and bytes formats plus a join separator.
+// {"sev":2,"by":"010203","argv":"a::b"}
+message MessageLevelEnumBytesJoin {
+  option (plainjson.message) = {
+    generate: true,
+    enum_format: ENUM_FORMAT_NUMBER,
+    bytes_format: BYTES_FORMAT_HEX,
+    cardinality: CARDINALITY_JOIN,
+    join_separator: "::"
+  };
+  Severity sev = 1;
+  bytes by = 2;
+  repeated string argv = 3;
+}

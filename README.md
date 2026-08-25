@@ -216,7 +216,7 @@ A path stops descending — becomes a leaf, producing exactly one key — when i
   `ListValue`, `Empty`, `FieldMask`, `Any`) — WKTs are never flattened, they encode
   as their protojson form;
 - a repeated or map field whose `cardinality` keeps it a collection;
-- any message field whose effective `flatten` is `NONE`.
+- any message field whose boundary `flatten` resolves to `NONE`.
 
 ### Exclusivity
 
@@ -238,12 +238,22 @@ plugin flag  →  file option  →  message option  →  oneof option  →  fiel
 ```
 
 An unset enum (value `0`, `*_UNSPECIFIED`) and an unset `optional bool` mean
-"inherit". A field option applies to the field **and to its whole subtree** —
-setting `key_case: KEY_CASE_SNAKE` on a message field snake-cases every key lifted
-out of it, without touching its siblings.
+"inherit".
 
-`prefix` and `suffix` are the exception: they **accumulate** down the path instead
-of overriding. See [Key naming](#key-naming).
+**Formatting options propagate down the subtree.** Setting
+`key_case: KEY_CASE_SNAKE` on a message field snake-cases every key lifted out of
+it, at any depth, without touching its siblings. Same for `key_from`, `emit_empty`,
+`cardinality`, and every scalar format option.
+
+`prefix` and `suffix` propagate too, but **accumulate** instead of overriding — see
+[Key naming](#key-naming).
+
+**`flatten` does not propagate.** On a field it is a *boundary* decision only: is
+*this* field inlined into its parent, or does it keep its own key. What happens
+below that boundary is decided by the flatten mode of the field's own message type
+(or, failing that, the file). This is what makes partial flattening composable —
+see [Flatten modes](#flatten-modes). To bound the depth of a subtree from the
+outside, use `max_depth` on the field.
 
 ---
 
@@ -353,11 +363,11 @@ Linux linux = 1 [(plainjson.field) = {
 | `name` | string | — | replace this path segment's name (accumulated prefixes still apply) |
 | `prefix` | string | — | prepended to every key produced by this subtree |
 | `suffix` | string | — | appended to every key produced by this subtree |
-| `flatten` | `FlattenMode` | inherited | `DEEP`/`SHALLOW` inlines this message field; `NONE` keeps it a nested object |
+| `flatten` | `FlattenMode` | the field type's own mode | **boundary only**: `DEEP`/`SHALLOW` inline this message field into its parent, `NONE` keeps it as its own nested key. Does not propagate below the boundary |
 | `pick` | string | — | dot path inside this field; the field is replaced by that single value |
 | `lift` | repeated `Lift` | — | hoist selected dot paths out of the subtree under given keys |
 | `tag` | string | branch field name | discriminator value when this field is a `oneof` branch |
-| `max_depth` | uint32 | inherited | depth limit for this subtree |
+| `max_depth` | uint32 | inherited | depth limit for this subtree; propagates, unlike `flatten` |
 
 ### Cardinality
 
@@ -442,8 +452,50 @@ message Wrap {
   option (plainjson.message).flatten = FLATTEN_MODE_DEEP;
   Outer out = 2 [(plainjson.field).flatten = FLATTEN_MODE_NONE];
 }
+message Outer { string a = 1; Inner in = 2; }
 // {"id":"w","out":{"a":"x","in":{"b":"y"}}}
 ```
+
+### Boundaries compose
+
+`flatten` on a field answers exactly one question: **is this field inlined into its
+parent?** It says nothing about what happens further down. Below the boundary the
+field's own message type decides — which is how you get a nested key whose contents
+are themselves flat:
+
+```proto
+message Wrap {
+  option (plainjson.message) = {generate: true, flatten: FLATTEN_MODE_DEEP};
+  string id  = 1;
+  Outer  out = 2 [(plainjson.field).flatten = FLATTEN_MODE_NONE];  // keeps its key
+}
+message Outer {
+  option (plainjson.message).flatten = FLATTEN_MODE_DEEP;          // but is flat inside
+  string a  = 1;
+  Inner  in = 2;
+}
+message Inner { string b = 1; }
+```
+
+```json
+{"id":"w","out":{"a":"x","b":"y"}}
+```
+
+Flat header, one grouped object, flat inside that object. The same message type can
+be inlined at one use site and kept nested at another — the boundary is a property
+of the field, the interior is a property of the type:
+
+```proto
+message Event {
+  option (plainjson.message).generate = true;
+  Outer inlined = 1 [(plainjson.field).flatten = FLATTEN_MODE_DEEP];
+  Outer grouped = 2 [(plainjson.field).flatten = FLATTEN_MODE_NONE];
+}
+// {"a":"x","b":"y","grouped":{"a":"x2","b":"y2"}}
+```
+
+To bound how deep a subtree flattens from the outside — without changing its
+type's options — use `max_depth` on the field.
 
 ### Depth limit
 
